@@ -203,6 +203,15 @@ mark[data-c="verde"] { background: #9be7a8; }
 }
 .editor:focus { outline: 2px solid var(--violeta); border-color: transparent; }
 .editor:empty::before { content: attr(data-placeholder); color: var(--tenue); }
+.vista-pre { position: sticky; top: 0; }
+.vista-pre canvas {
+  display: block; width: 100%; max-width: 420px; margin: 0 auto 14px; border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(42, 27, 61, .18); border: 1px solid var(--borde);
+}
+.contador { display: flex; align-items: center; gap: 4px; }
+.contador input { width: 64px; text-align: center; }
+button.b.wsp { background: #25d366; color: #fff; border-color: transparent; }
+button.b.wsp:hover { filter: brightness(1.06); color: #fff; }
 #toast {
   position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
   background: var(--texto); color: var(--fondo); padding: 10px 18px; border-radius: 999px;
@@ -217,6 +226,7 @@ mark[data-c="verde"] { background: #9be7a8; }
   <h1>Munay<small>Cotizador</small></h1>
   <nav>
     <button data-tab="cot" class="activo">Cotizar</button>
+    <button data-tab="pre">Presupuesto</button>
     <button data-tab="insumos">Insumos</button>
     <button data-tab="productos">Productos</button>
     <button data-tab="historial">Historial</button>
@@ -232,6 +242,25 @@ mark[data-c="verde"] { background: #9be7a8; }
     <div class="cot">
       <div id="cot-form"></div>
       <div id="cot-res"></div>
+    </div>
+  </section>
+
+  <section id="tab-pre">
+    <div class="cot">
+      <div id="pre-form"></div>
+      <div class="vista-pre">
+        <div class="tarjeta">
+          <h2>Vista previa para el cliente</h2>
+          <canvas id="pre-canvas"></canvas>
+          <div class="acciones">
+            <button class="b wsp" data-acc="pre-whatsapp">Enviar por WhatsApp</button>
+            <button class="b" data-acc="pre-copiar-img">Copiar imagen</button>
+            <button class="b" data-acc="pre-guardar-img">Guardar imagen</button>
+            <button class="b" data-acc="pre-copiar-txt">Copiar texto</button>
+          </div>
+          <div class="pista">Con el número del cliente, “Enviar por WhatsApp” abre WhatsApp de escritorio y le manda el texto y la imagen. Mientras tanto, no toques el teclado ni el mouse.</div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -387,7 +416,10 @@ const cant = n => fmtNum.format(n || 0);
 const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 /* ---------- Datos ---------- */
-const cotVacia = () => ({ productoId: null, nombre: '', cliente: '', cantidad: 1, margen: 50, manoObra: 0, otros: 0, redondeo: 0, items: [] });
+// precioFinal es por unidad; el costo y la ganancia se calculan a partir de él
+const cotVacia = () => ({ productoId: null, nombre: '', cliente: '', cantidad: 1, otros: 0, precioFinal: 0, items: [] });
+const preVacio = () => ({ cliente: '', telefono: '', items: [], descuento: 0, envio: 0, nota: '', conDetalle: true, autoEnviar: true });
+const ajustesBase = () => ({ negocio: 'Munay', telefono: '' });
 
 function datosIniciales() {
   // Insumos de ejemplo con precios ficticios: editalos o borralos desde la pestaña Insumos
@@ -404,13 +436,13 @@ function datosIniciales() {
     otro('Bolsa celofán 10 × 15', 'Packaging', 'unidad', 3500, 100, 100),
   ];
   const productos = [{
-    id: nuevoId(), nombre: 'Tarjetas personales 9 × 5 (x100)', margen: 80, manoObra: 1500, otros: 0, redondeo: 100,
+    id: nuevoId(), nombre: 'Tarjetas personales 9 × 5 (x100)', otros: 0, precioFinal: 6000,
     items: [
       { insumoId: insumos[3].id, modo: 'corte', cantidad: 1, piezas: 100, ancho: 9, alto: 5, sep: 2 },
       { insumoId: insumos[4].id, modo: 'cantidad', cantidad: 3, piezas: 1, ancho: 5, alto: 5, sep: 2 },
     ],
   }];
-  return { tema: 'claro', insumos, productos, historial: [], ventas: [], pedidos: {}, borrador: cotVacia() };
+  return { tema: 'claro', insumos, productos, historial: [], ventas: [], pedidos: {}, borrador: cotVacia(), presupuesto: preVacio(), ajustes: ajustesBase() };
 }
 
 let estado = null;
@@ -429,7 +461,7 @@ function guardar() {
 function normalizar(d) {
   const base = datosIniciales();
   if (!d || !Array.isArray(d.insumos)) return base;
-  return {
+  const e = {
     tema: d.tema === 'oscuro' ? 'oscuro' : 'claro',
     insumos: d.insumos,
     productos: Array.isArray(d.productos) ? d.productos : [],
@@ -437,7 +469,28 @@ function normalizar(d) {
     ventas: Array.isArray(d.ventas) ? d.ventas : [],
     pedidos: d.pedidos && typeof d.pedidos === 'object' ? d.pedidos : {},
     borrador: Object.assign(cotVacia(), d.borrador || {}),
+    presupuesto: Object.assign(preVacio(), d.presupuesto || {}),
+    ajustes: Object.assign(ajustesBase(), d.ajustes || {}),
   };
+  if (d.borrador && !('precioFinal' in d.borrador)) delete e.borrador.precioFinal;
+  return e;
+}
+
+// Antes el precio salía de mano de obra + margen + redondeo. Los datos viejos se pasan a un precio
+// final fijo con el mismo valor que daban, así los productos guardados no cambian de precio.
+function migrarPrecioFinal(c) {
+  if (c.precioFinal !== undefined) return;
+  const n = Math.max(1, num(c.cantidad));
+  const materiales = calcular({ ...c, precioFinal: 0 }).materiales;
+  let precio = (materiales + num(c.manoObra) * n + num(c.otros)) * (1 + num(c.margen ?? 50) / 100);
+  if (num(c.redondeo) > 0) precio = Math.ceil(precio / num(c.redondeo) - 1e-9) * num(c.redondeo);
+  c.precioFinal = Math.round(precio / n * 100) / 100;
+  delete c.manoObra; delete c.margen; delete c.redondeo;
+}
+
+function cargarEstado(d) {
+  estado = normalizar(d);
+  [estado.borrador, ...estado.productos].forEach(migrarPrecioFinal);
 }
 
 async function iniciar() {
@@ -448,9 +501,10 @@ async function iniciar() {
   } catch (e) { texto = null; }
   let d = null;
   try { d = texto ? JSON.parse(texto) : null; } catch (e) { d = null; }
-  estado = normalizar(d);
+  cargarEstado(d);
   aplicarTema();
   pintarTodo();
+  cargarLogo();
 }
 
 /* ---------- Cálculo ---------- */
@@ -491,17 +545,13 @@ function calcular(c) {
     lineas.push(l);
   });
   const materiales = lineas.reduce((s, l) => s + l.costo, 0);
-  const manoObra = num(c.manoObra) * n;
   const otros = num(c.otros);
-  const costo = materiales + manoObra + otros;
-  const margenPedido = num(c.margen);
-  let precio = costo * (1 + margenPedido / 100);
-  const red = num(c.redondeo);
-  if (red > 0) precio = Math.ceil(precio / red - 1e-9) * red;
+  const costo = materiales + otros;
+  const precio = num(c.precioFinal) * n;
   const ganancia = precio - costo;
-  // Con redondeo el margen real queda apenas por encima del pedido
-  const margenReal = costo > 0 ? ganancia / costo * 100 : margenPedido;
-  return { n, lineas, materiales, manoObra, otros, costo, margenPedido, margenReal, ganancia, precio, redondeado: red > 0 };
+  // Margen sobre el costo, igual que en Ventas
+  const margenReal = margenDe(precio, costo);
+  return { n, lineas, materiales, otros, costo, margenReal, ganancia, precio };
 }
 
 /* ---------- Pestaña Cotizar ---------- */
@@ -559,16 +609,12 @@ function pintarCotForm() {
       <button class="b" data-acc="cot-agregar">+ Agregar insumo</button>
     </div>
     <div class="tarjeta">
-      <h2><span class="paso">3</span> Otros costos y ganancia</h2>
+      <h2><span class="paso">3</span> Otros costos y precio</h2>
       <div class="fila">
-        <div class="campo"><label>Mano de obra por producto ($)</label><input type="number" min="0" step="any" data-f="manoObra" data-n value="${num(c.manoObra)}"></div>
         <div class="campo"><label>Otros costos del pedido ($)</label><input type="number" min="0" step="any" data-f="otros" data-n value="${num(c.otros)}"></div>
-        <div class="campo"><label>Margen de ganancia (%)</label><input type="number" min="0" step="any" data-f="margen" data-n value="${num(c.margen)}"></div>
-        <div class="campo"><label>Redondear precio a</label>
-          <select data-f="redondeo" data-n>${[[0, 'Sin redondeo'], [10, '$ 10'], [50, '$ 50'], [100, '$ 100'], [500, '$ 500'], [1000, '$ 1.000']].map(([v, t]) =>
-            `<option value="${v}" ${num(c.redondeo) === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+        <div class="campo"><label>Precio final por unidad ($)</label><input type="number" min="0" step="any" data-f="precioFinal" data-n value="${num(c.precioFinal)}"></div>
       </div>
-      <div class="pista">El margen se aplica sobre el costo total: precio = costo × (1 + margen ÷ 100).</div>
+      <div class="pista" id="cot-pista-precio"></div>
     </div>`;
   pintarCotRes();
 }
@@ -602,6 +648,14 @@ function pintarCotRes() {
     p.className = 'pista' + (l.falta || (l.enc && !l.enc.total) ? ' mal' : '');
   });
 
+  const pistaPrecio = $('#cot-pista-precio');
+  if (pistaPrecio) {
+    pistaPrecio.textContent = `Tu costo es ${pesos(r.costo / r.n)} por unidad. ` + (r.precio
+      ? `Con este precio ganás ${pesos(r.ganancia / r.n)} por unidad (${cant(r.margenReal)} %).`
+      : 'Cargá el precio al que lo vas a vender y te calculo la ganancia.');
+    pistaPrecio.className = 'pista' + (r.precio && r.ganancia < 0 ? ' mal' : '');
+  }
+
   const filas = r.lineas.map(l => `<tr>
     <td>${esc(l.ins.nombre)}${l.falta ? ' <span class="chip mal">sin stock</span>' : ''}</td>
     <td class="num">${cant(l.usados)} ${esc(l.ins.unidad)}</td>
@@ -617,21 +671,23 @@ function pintarCotRes() {
         <tbody>${filas}</tbody></table>` : '<div class="vacio">Agregá insumos para ver el detalle de costos.</div>'}
       <table class="resumen" style="margin-top:12px">
         <tr class="sub"><td>Materia prima</td><td class="num">${pesos(r.materiales)}</td></tr>
-        <tr class="sub"><td>Mano de obra (${cant(r.n)} × ${pesos(num(c.manoObra))})</td><td class="num">${pesos(r.manoObra)}</td></tr>
         <tr class="sub"><td>Otros costos</td><td class="num">${pesos(r.otros)}</td></tr>
         <tr class="total"><td>Costo total</td><td class="num">${pesos(r.costo)}</td></tr>
+        <tr class="sub"><td>Precio final (${cant(r.n)} × ${pesos(num(c.precioFinal))})</td><td class="num">${pesos(r.precio)}</td></tr>
         <tr class="ganancia"><td>Margen de ganancia (${cant(r.margenReal)} %)</td><td class="num">${pesos(r.ganancia)}</td></tr>
       </table>
-      ${r.redondeado && Math.abs(r.margenReal - r.margenPedido) > 0.005 ? `<div class="pista">Pediste ${cant(r.margenPedido)} %; por el redondeo el margen real queda en ${cant(r.margenReal)} %.</div>` : ''}
+      ${r.precio && r.ganancia < 0 ? '<div class="pista mal">Con este precio perdés plata: está por debajo del costo.</div>' : ''}
       <div class="precio-final">
-        <div><div class="t">Precio final sugerido</div><div class="v">${pesos(r.precio)}</div></div>
-        <div class="u">${cant(r.n)} unidad${r.n === 1 ? '' : 'es'}<br><b>${pesos(r.precio / r.n)}</b> c/u · costo ${pesos(r.costo / r.n)} c/u</div>
+        <div><div class="t">Precio final</div><div class="v">${pesos(r.precio)}</div></div>
+        <div class="u">${cant(r.n)} unidad${r.n === 1 ? '' : 'es'} · <b>${pesos(r.precio / r.n)}</b> c/u<br>
+          Ganancia <b>${pesos(r.ganancia)}</b> (${cant(r.margenReal)} %) · costo ${pesos(r.costo / r.n)} c/u</div>
       </div>
       <div class="acciones" style="margin-top:14px">
         <button class="b primario" data-acc="cot-guardar">Guardar cotización</button>
         <button class="b" data-acc="cot-vender">Registrar venta</button>
         <button class="b" data-acc="cot-producto">${c.productoId ? 'Actualizar producto' : 'Guardar como producto'}</button>
         <button class="b" data-acc="cot-copiar">Copiar resumen</button>
+        <button class="b" data-acc="pre-desde-cot">Agregar al presupuesto</button>
       </div>
     </div>
     ${previas ? `<div class="tarjeta"><h2>Vista previa de cortes</h2><div class="previa">${previas}</div></div>` : ''}`;
@@ -642,10 +698,241 @@ function textoResumen(c, r) {
   if (c.cliente) L.push(`Cliente: ${c.cliente}`);
   L.push(`Cantidad: ${cant(r.n)}`, '', 'Costos:');
   r.lineas.forEach(l => L.push(`  ${l.ins.nombre}: ${cant(l.usados)} ${l.ins.unidad} × ${pesos(l.cu)} = ${pesos(l.costo)}`));
-  L.push(`  Mano de obra: ${pesos(r.manoObra)}`, `  Otros costos: ${pesos(r.otros)}`, `Costo total: ${pesos(r.costo)}`,
+  L.push(`  Otros costos: ${pesos(r.otros)}`, `Costo total: ${pesos(r.costo)}`,
     `Margen de ganancia: ${cant(r.margenReal)} % (${pesos(r.ganancia)})`,
-    `PRECIO FINAL SUGERIDO: ${pesos(r.precio)} (${pesos(r.precio / r.n)} c/u)`);
+    `PRECIO FINAL: ${pesos(r.precio)} (${pesos(r.precio / r.n)} c/u)`);
   return L.join('\n');
+}
+
+/* ---------- Pestaña Presupuesto ---------- */
+// Presupuesto para mandarle al cliente: artículos con precio de venta, descuento y envío.
+// La vista previa es un canvas, así lo que se ve es exactamente la imagen que se comparte.
+const precioProducto = p => calcular({ ...p, cantidad: 1 }).precio;
+
+function calcPresupuesto(p) {
+  const lineas = p.items.map(it => ({ ...it, total: num(it.precio) * num(it.cantidad) }));
+  const subtotal = lineas.reduce((s, l) => s + l.total, 0);
+  const pct = num(p.descuento), descuento = subtotal * pct / 100, envio = num(p.envio);
+  return { lineas, subtotal, pct, descuento, envio, total: subtotal - descuento + envio };
+}
+
+function agregarAlPresupuesto(nombre, precio, cantidad) {
+  estado.presupuesto.items.push({ nombre, precio: Math.round(precio * 100) / 100, cantidad: Math.max(1, cantidad || 1) });
+  pintarPreForm();
+}
+
+function pintarPreForm() {
+  const p = estado.presupuesto, a = estado.ajustes;
+  const lineas = p.items.map((it, i) => `<div class="linea">
+      <div class="fila">
+        <div class="campo grande"><label>Artículo</label><input data-i="${i}" data-k="nombre" value="${esc(it.nombre)}" placeholder="Ej.: Topper cake 3D (con nombre)"></div>
+        <div class="campo"><label>Precio unitario ($)</label><input type="number" min="0" step="any" data-i="${i}" data-k="precio" value="${num(it.precio)}"></div>
+        <div class="campo" style="flex:0 0 auto"><label>Cantidad</label><div class="contador">
+          <button class="b mini" data-acc="pre-cant" data-i="${i}" data-d="-1">−</button>
+          <input type="number" min="1" step="1" data-i="${i}" data-k="cantidad" value="${num(it.cantidad)}">
+          <button class="b mini" data-acc="pre-cant" data-i="${i}" data-d="1">+</button></div></div>
+        <button class="b mini peligro" data-acc="pre-quitar" data-i="${i}" title="Quitar">✕</button>
+      </div>
+      <div class="pista" id="pre-sub-${i}"></div>
+    </div>`).join('');
+
+  $('#pre-form').innerHTML = `
+    <div class="tarjeta">
+      <h2><span class="paso">1</span> Cliente</h2>
+      <div class="fila">
+        <div class="campo grande"><label>Nombre</label><input data-p="cliente" value="${esc(p.cliente)}" placeholder="Ej.: Juana"></div>
+        <div class="campo grande"><label>WhatsApp del cliente</label><input data-p="telefono" value="${esc(p.telefono)}" placeholder="Ej.: 11 2345 6789 (sin 0 ni 15)"></div>
+      </div>
+      <div class="pista">Si lo dejás vacío, WhatsApp te deja elegir a quién mandarlo.</div>
+    </div>
+    <div class="tarjeta">
+      <h2><span class="paso">2</span> Artículos</h2>
+      ${lineas || '<div class="vacio">Todavía no agregaste artículos.</div>'}
+      <div class="linea" id="pre-rapido">
+        <div class="etq" style="margin-bottom:6px">Artículo rápido (no hace falta tenerlo cargado)</div>
+        <div class="fila">
+          <div class="campo grande"><label>Nombre</label><input id="rap-nombre" placeholder="Ej.: Caja sorpresa temática"></div>
+          <div class="campo"><label>Precio unitario ($)</label><input id="rap-precio" type="number" min="0" step="any"></div>
+          <div class="campo chico"><label>Cantidad</label><input id="rap-cant" type="number" min="1" step="1" value="1"></div>
+          <button class="b primario" data-acc="pre-rapido">Agregar</button>
+        </div>
+      </div>
+      ${estado.productos.length ? `<div class="fila">
+        <div class="campo grande"><select id="pre-agregar">
+          <option value="">Elegí un producto guardado…</option>
+          ${estado.productos.map(x => `<option value="${x.id}">${esc(x.nombre)} — ${pesos(precioProducto(x))}</option>`).join('')}
+        </select></div>
+        <button class="b" data-acc="pre-agregar-prod">+ Agregar producto</button>
+      </div>` : '<div class="pista">Los productos que guardes desde Cotizar van a aparecer acá para agregarlos con un clic.</div>'}
+    </div>
+    <div class="tarjeta">
+      <h2><span class="paso">3</span> Descuento, envío y nota</h2>
+      <div class="fila">
+        <div class="campo"><label>Descuento (%)</label><input type="number" min="0" max="100" step="any" data-p="descuento" data-n value="${num(p.descuento)}"></div>
+        <div class="campo"><label>Envío ($)</label><input type="number" min="0" step="any" data-p="envio" data-n value="${num(p.envio)}"></div>
+      </div>
+      <div class="campo" style="margin-top:10px"><label>Nota al pie (opcional)</label>
+        <textarea data-p="nota" placeholder="Ej.: Seña del 50 % para confirmar. Presupuesto válido por 7 días.">${esc(p.nota)}</textarea></div>
+      <label class="marca" style="margin-top:10px"><input type="checkbox" data-p="conDetalle" ${p.conDetalle ? 'checked' : ''}> Incluir también el detalle en el texto del mensaje</label>
+      <label class="marca"><input type="checkbox" data-p="autoEnviar" ${p.autoEnviar ? 'checked' : ''}> Enviar automáticamente (si lo destildás, queda todo cargado para que lo revises y toques Enviar)</label>
+      <div class="acciones" style="margin-top:12px"><button class="b peligro" data-acc="pre-vaciar">Empezar uno nuevo</button></div>
+    </div>
+    <div class="tarjeta">
+      <h2>Tus datos (salen en la imagen)</h2>
+      <div class="fila">
+        <div class="campo"><label>Nombre del negocio</label><input data-a="negocio" value="${esc(a.negocio)}"></div>
+        <div class="campo"><label>Tu WhatsApp</label><input data-a="telefono" value="${esc(a.telefono)}" placeholder="Ej.: 11 2345 6789"></div>
+      </div>
+    </div>`;
+  pintarPreVista();
+}
+
+let logoPre = null;
+function cargarLogo() {
+  const img = new Image();
+  img.onload = () => { logoPre = img; pintarPreVista(); };
+  if (enApp) window.pywebview.api.logo().then(src => { img.src = src; }).catch(() => {});
+  else img.src = 'logo.jpg';
+}
+
+function partirTexto(ctx, texto, ancho) {
+  const L = []; let a = '';
+  for (const p of String(texto).split(/\s+/).filter(Boolean)) {
+    const prueba = a ? a + ' ' + p : p;
+    if (a && ctx.measureText(prueba).width > ancho) { L.push(a); a = p; } else a = prueba;
+  }
+  if (a) L.push(a);
+  return L.length ? L : [''];
+}
+
+// Dibuja la tarjeta (siempre en colores claros, es lo que recibe el cliente) y devuelve el alto usado
+function dibujarTarjeta(ctx) {
+  const p = estado.presupuesto, a = estado.ajustes, r = calcPresupuesto(p);
+  const W = 600, PAD = 32, F = '"Segoe UI", system-ui, sans-serif';
+  const C = { texto: '#2a1b3d', tenue: '#7b6a8e', borde: '#e9dcf3', caja: '#f5ecfb', violeta: '#6f55f2' };
+  const fuente = (peso, tam) => { ctx.font = `${peso} ${tam}px ${F}`; };
+  const texto = (t, x, y, alin = 'left', color = C.texto) => { ctx.fillStyle = color; ctx.textAlign = alin; ctx.fillText(t, x, y); };
+  const degrade = (y0, y1) => {
+    const g = ctx.createLinearGradient(0, y0, W, y1);
+    g.addColorStop(0, '#8b75ff'); g.addColorStop(.5, '#b46cf0'); g.addColorStop(1, '#ec5fa8');
+    return g;
+  };
+  const punteada = y => {
+    ctx.save(); ctx.strokeStyle = C.borde; ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke(); ctx.restore();
+  };
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, 4000);
+
+  // Encabezado: logo, negocio y fecha
+  ctx.fillStyle = degrade(0, 170); ctx.fillRect(0, 0, W, 170);
+  ctx.save();
+  ctx.beginPath(); ctx.arc(W / 2, 64, 46, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+  if (logoPre) {
+    ctx.beginPath(); ctx.arc(W / 2, 64, 42, 0, Math.PI * 2); ctx.clip();
+    ctx.drawImage(logoPre, W / 2 - 42, 22, 84, 84);
+  }
+  ctx.restore();
+  fuente(700, 26); texto(a.negocio || 'Munay', W / 2, 138, 'center', '#fff');
+  fuente(400, 14); texto(`Presupuesto · ${new Date().toLocaleDateString('es-AR')}`, W / 2, 158, 'center', 'rgba(255,255,255,.9)');
+  let y = 170;
+  if (p.cliente.trim()) { y += 36; fuente(600, 17); texto(`Para: ${p.cliente.trim()}`, W / 2, y, 'center'); }
+  y += 20; punteada(y); y += 18;
+
+  // Artículos
+  if (!r.lineas.length) { y += 24; fuente(400, 15); texto('Agregá artículos para armar el presupuesto', W / 2, y, 'center', C.tenue); y += 26; }
+  r.lineas.forEach(l => {
+    const CAJA = 52, xNom = PAD + CAJA + 16;
+    fuente(700, 17); const anchoPrecio = ctx.measureText(pesos(l.total)).width;
+    const nombre = partirTexto(ctx, l.nombre || 'Artículo', W - PAD - anchoPrecio - 18 - xNom);
+    const conUnit = num(l.cantidad) !== 1;
+    const altoTxt = nombre.length * 22 + (conUnit ? 20 : 0);
+    const alto = Math.max(CAJA, altoTxt), ySup = y + (alto - altoTxt) / 2;
+    ctx.fillStyle = C.caja; ctx.beginPath(); ctx.roundRect(PAD, y + (alto - CAJA) / 2, CAJA, CAJA, 12); ctx.fill();
+    fuente(700, 18); texto(`x${cant(l.cantidad)}`, PAD + CAJA / 2, y + alto / 2 + 6, 'center', C.violeta);
+    fuente(600, 17); nombre.forEach((t, i) => texto(t, xNom, ySup + 17 + i * 22));
+    if (conUnit) { fuente(400, 13.5); texto(`${pesos(l.precio)} c/u`, xNom, ySup + nombre.length * 22 + 14, 'left', C.tenue); }
+    fuente(700, 17); texto(pesos(l.total), W - PAD, ySup + 17, 'right');
+    y += alto + 14;
+  });
+  y += 4; punteada(y); y += 8;
+
+  // Subtotal, descuento y envío
+  const fila = (etq, valor) => { y += 30; fuente(400, 16); texto(etq, PAD, y, 'left', C.tenue); texto(valor, W - PAD, y, 'right', C.tenue); };
+  if (r.pct || r.envio) fila('Subtotal', pesos(r.subtotal));
+  if (r.pct) fila(`Descuento (${cant(r.pct)} %)`, '−' + pesos(r.descuento));
+  if (r.envio) fila('Envío', pesos(r.envio));
+  y += 18;
+  ctx.fillStyle = degrade(y, y + 60); ctx.beginPath(); ctx.roundRect(PAD, y, W - PAD * 2, 60, 14); ctx.fill();
+  fuente(700, 18); texto('Total', PAD + 20, y + 37, 'left', '#fff');
+  fuente(800, 26); texto(pesos(r.total), W - PAD - 20, y + 39, 'right', '#fff');
+  y += 60;
+
+  // Nota y contacto
+  if (p.nota.trim()) {
+    y += 14; fuente(400, 14.5);
+    p.nota.trim().split('\n').forEach(par => partirTexto(ctx, par, W - PAD * 2).forEach(t => { y += 21; texto(t, W / 2, y, 'center', C.tenue); }));
+  }
+  if (a.telefono.trim()) { y += 30; fuente(600, 14.5); texto(`WhatsApp ${a.telefono.trim()}`, W / 2, y, 'center', C.violeta); }
+  return y + 28;
+}
+
+function pintarPreVista() {
+  const cv = $('#pre-canvas');
+  if (!cv || !estado) return;
+  const r = calcPresupuesto(estado.presupuesto);
+  r.lineas.forEach((l, i) => { const e = $('#pre-sub-' + i); if (e) e.textContent = `${cant(l.cantidad)} × ${pesos(l.precio)} = ${pesos(l.total)}`; });
+  const S = 2, alto = dibujarTarjeta(document.createElement('canvas').getContext('2d'));
+  cv.width = 600 * S; cv.height = Math.ceil(alto * S);
+  const ctx = cv.getContext('2d'); ctx.scale(S, S);
+  dibujarTarjeta(ctx);
+}
+
+// Si el logo "ensucia" el canvas (abriendo el HTML suelto desde file://) se redibuja sin logo
+function exportarCanvas(fn) {
+  try { return fn($('#pre-canvas')); }
+  catch (e) { logoPre = null; pintarPreVista(); return fn($('#pre-canvas')); }
+}
+const imagenPresupuesto = () => new Promise((ok, mal) =>
+  exportarCanvas(cv => cv.toBlob(b => (b ? ok(b) : mal(new Error('sin imagen'))), 'image/png')));
+
+async function copiarImagen() {
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': imagenPresupuesto() })]);
+    return true;
+  } catch (e) { return false; }
+}
+
+function textoPresupuesto() {
+  const p = estado.presupuesto, a = estado.ajustes, r = calcPresupuesto(p);
+  const L = [p.cliente.trim() ? `¡Hola ${p.cliente.trim()}! Te paso el presupuesto de *${a.negocio || 'Munay'}*` : `Presupuesto de *${a.negocio || 'Munay'}*`];
+  if (!p.conDetalle) return L[0] + ' 👇';
+  L.push('');
+  r.lineas.forEach(l => L.push(`• ${cant(l.cantidad)} × ${l.nombre || 'Artículo'}${num(l.cantidad) !== 1 ? ` (${pesos(l.precio)} c/u)` : ''}: ${pesos(l.total)}`));
+  L.push('');
+  if (r.pct || r.envio) L.push(`Subtotal: ${pesos(r.subtotal)}`);
+  if (r.pct) L.push(`Descuento (${cant(r.pct)} %): −${pesos(r.descuento)}`);
+  if (r.envio) L.push(`Envío: ${pesos(r.envio)}`);
+  L.push(`*TOTAL: ${pesos(r.total)}*`);
+  if (p.nota.trim()) L.push('', p.nota.trim());
+  return L.join('\n');
+}
+
+// wa.me necesita el número en formato internacional; para Argentina es 549 + característica + número
+function numeroWhatsApp(t) {
+  const crudo = String(t || '').trim();
+  let d = crudo.replace(/\D/g, '');
+  if (!d) return '';
+  if (crudo.startsWith('+') && !d.startsWith('54')) return d; // número de otro país
+  if (d.startsWith('00')) d = d.slice(2);
+  if (d.startsWith('54')) d = d.slice(d.startsWith('549') ? 3 : 2);
+  if (d.startsWith('0')) d = d.slice(1);
+  return '549' + d;
+}
+
+function abrirUrl(url) {
+  if (enApp) window.pywebview.api.abrir_url(url);
+  else window.open(url, '_blank');
 }
 
 /* ---------- Pestaña Insumos ---------- */
@@ -736,6 +1023,7 @@ function pintarProductos() {
       <div class="pista">Costo ${pesos(r.costo)} · Margen ${cant(r.margenReal)} % (${pesos(r.ganancia)})</div>
       <div class="acciones" style="margin-top:12px">
         <button class="b mini primario" data-acc="prod-cotizar" data-id="${p.id}">Cotizar / editar</button>
+        <button class="b mini" data-acc="pre-producto" data-id="${p.id}">+ Presupuesto</button>
         <button class="b mini" data-acc="prod-duplicar" data-id="${p.id}">Duplicar</button>
         <button class="b mini peligro" data-acc="prod-borrar" data-id="${p.id}">Eliminar</button>
       </div></div>`;
@@ -943,7 +1231,7 @@ formPedido.addEventListener('submit', () => {
 });
 
 /* ---------- General ---------- */
-function pintarTodo() { pintarCotForm(); pintarInsumos(); pintarProductos(); pintarHistorial(); pintarVentas(); pintarPedidos(); }
+function pintarTodo() { pintarCotForm(); pintarPreForm(); pintarInsumos(); pintarProductos(); pintarHistorial(); pintarVentas(); pintarPedidos(); }
 
 function aplicarTema() {
   document.documentElement.dataset.tema = estado.tema;
@@ -978,7 +1266,7 @@ const acciones = {
   'cot-producto'() {
     const c = estado.borrador;
     if (!c.nombre.trim()) return aviso('Ponele un nombre al producto');
-    const datos = JSON.parse(JSON.stringify({ nombre: c.nombre.trim(), margen: c.margen, manoObra: c.manoObra, otros: c.otros, redondeo: c.redondeo, items: c.items }));
+    const datos = JSON.parse(JSON.stringify({ nombre: c.nombre.trim(), otros: c.otros, precioFinal: c.precioFinal, items: c.items }));
     const p = estado.productos.find(x => x.id === c.productoId);
     if (p) Object.assign(p, datos);
     else { c.productoId = nuevoId(); estado.productos.push({ id: c.productoId, ...datos }); }
@@ -994,6 +1282,63 @@ const acciones = {
     });
     pintarHistorial(); aviso('Cotización guardada en el historial');
   },
+  'pre-desde-cot'() {
+    const c = estado.borrador, r = calcular(c);
+    if (!r.lineas.length && !r.costo) return aviso('La cotización está vacía');
+    agregarAlPresupuesto(c.nombre || 'Producto', r.precio / r.n, r.n);
+    irA('pre'); aviso('Agregado al presupuesto');
+  },
+  'pre-producto'(d) {
+    const p = estado.productos.find(x => x.id === d.id);
+    agregarAlPresupuesto(p.nombre, precioProducto(p), 1);
+    irA('pre'); aviso('Agregado al presupuesto');
+  },
+  'pre-agregar-prod'() {
+    const p = estado.productos.find(x => x.id === $('#pre-agregar').value);
+    if (!p) return aviso('Elegí un producto de la lista');
+    agregarAlPresupuesto(p.nombre, precioProducto(p), 1);
+  },
+  'pre-rapido'() {
+    const nombre = $('#rap-nombre').value.trim();
+    if (!nombre) { $('#rap-nombre').focus(); return aviso('Escribí el nombre del artículo'); }
+    agregarAlPresupuesto(nombre, num($('#rap-precio').value), Math.round(num($('#rap-cant').value)) || 1);
+    $('#rap-nombre').focus();
+  },
+  'pre-cant'(d) {
+    const it = estado.presupuesto.items[+d.i];
+    it.cantidad = Math.max(1, num(it.cantidad) + num(d.d)); pintarPreForm();
+  },
+  'pre-quitar'(d) { estado.presupuesto.items.splice(+d.i, 1); pintarPreForm(); },
+  'pre-vaciar'() {
+    if (estado.presupuesto.items.length && !confirm('¿Borrar este presupuesto y empezar uno nuevo?')) return;
+    estado.presupuesto = preVacio(); pintarPreForm();
+  },
+  async 'pre-whatsapp'() {
+    const p = estado.presupuesto;
+    if (!p.items.length) return aviso('Agregá al menos un artículo');
+    const tel = numeroWhatsApp(p.telefono);
+    // Con número y en la app: WhatsApp de escritorio recibe el texto y la imagen sin pasos manuales
+    if (enApp && tel) {
+      aviso('Abriendo WhatsApp… no toques el teclado ni el mouse');
+      const res = await window.pywebview.api.enviar_whatsapp(exportarCanvas(cv => cv.toDataURL('image/png')), tel, textoPresupuesto(), p.autoEnviar);
+      return aviso({
+        ok: p.autoEnviar ? 'Presupuesto enviado por WhatsApp' : 'Listo: revisalo y tocá Enviar en WhatsApp',
+        'sin-ventana': 'No se abrió WhatsApp de escritorio',
+        foco: 'Se cambió de ventana: terminá de enviarlo a mano en WhatsApp',
+      }[res] || 'No se pudo enviar');
+    }
+    const copiada = await copiarImagen();
+    abrirUrl(`https://wa.me/${tel}?text=${encodeURIComponent(textoPresupuesto())}`);
+    aviso(copiada ? 'Imagen copiada: pegala en el chat con Ctrl+V' : 'Se abrió WhatsApp con el texto');
+  },
+  async 'pre-copiar-img'() { aviso(await copiarImagen() ? 'Imagen copiada' : 'No se pudo copiar; probá con “Guardar imagen”'); },
+  async 'pre-guardar-img'() {
+    const nombre = `presupuesto-${(estado.presupuesto.cliente.trim() || 'munay').replace(/[^\w-]+/g, '-')}-${hoy()}.png`;
+    const dataUrl = exportarCanvas(cv => cv.toDataURL('image/png'));
+    if (enApp) { if (await window.pywebview.api.guardar_imagen(dataUrl, nombre)) aviso('Imagen guardada'); return; }
+    const a = document.createElement('a'); a.href = dataUrl; a.download = nombre; a.click();
+  },
+  'pre-copiar-txt'() { copiar(textoPresupuesto()); },
   'ins-nuevo'() { abrirInsumo(null); },
   'ins-editar'(d) { abrirInsumo(d.id); },
   'ins-duplicar'(d) {
@@ -1084,7 +1429,7 @@ const acciones = {
     let d; try { d = JSON.parse(texto); } catch (e) { d = null; }
     if (!d || !Array.isArray(d.insumos)) return aviso('El archivo no es un backup válido');
     if (!confirm('Esto reemplaza todos los datos actuales por los del backup. ¿Continuar?')) return;
-    estado = normalizar(d); aplicarTema(); pintarTodo(); aviso('Backup restaurado');
+    cargarEstado(d); aplicarTema(); pintarTodo(); aviso('Backup restaurado');
   },
 };
 
@@ -1112,6 +1457,20 @@ $('#cot-form').addEventListener('input', ev => {
   } else return;
   guardar();
   if ('repintar' in t.dataset) pintarCotForm(); else pintarCotRes();
+});
+$('#pre-form').addEventListener('input', ev => {
+  const t = ev.target, p = estado.presupuesto;
+  if (t.id === 'pre-agregar') return;
+  if (t.dataset.p) p[t.dataset.p] = t.type === 'checkbox' ? t.checked : 'n' in t.dataset ? num(t.value) : t.value;
+  else if (t.dataset.a) estado.ajustes[t.dataset.a] = t.value;
+  else if (t.dataset.k) p.items[+t.dataset.i][t.dataset.k] = t.dataset.k === 'nombre' ? t.value : num(t.value);
+  else return;
+  guardar(); pintarPreVista();
+});
+// Enter en la fila de artículo rápido lo agrega, para cargar varios seguidos sin usar el mouse
+$('#pre-form').addEventListener('keydown', ev => {
+  if (ev.key !== 'Enter' || !ev.target.closest('#pre-rapido')) return;
+  ev.preventDefault(); acciones['pre-rapido'](); guardar();
 });
 $('#ins-buscar').addEventListener('input', pintarInsumos);
 $('#ins-cat').addEventListener('input', pintarInsumos);
