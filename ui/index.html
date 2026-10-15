@@ -1,0 +1,1127 @@
+<!doctype html>
+<html lang="es" data-tema="claro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Munay Cotizador</title>
+<style>
+:root {
+  --violeta: #8b75ff;
+  --violeta-fuerte: #6f55f2;
+  --rosa: #ec5fa8;
+  --rosa-suave: #f9c6e0;
+  --degrade: linear-gradient(120deg, #8b75ff 0%, #b46cf0 50%, #ec5fa8 100%);
+  --fondo: #fbf6fd;
+  --superficie: #ffffff;
+  --superficie-2: #f5ecfb;
+  --texto: #2a1b3d;
+  --tenue: #7b6a8e;
+  --borde: #e9dcf3;
+  --ok: #2f9e6e;
+  --alerta: #d9488a;
+  --sombra: 0 6px 24px rgba(111, 85, 242, .10);
+  --hoja: #ffffff;
+  --pieza: #e7defF;
+}
+[data-tema="oscuro"] {
+  --violeta: #a594ff;
+  --violeta-fuerte: #8b75ff;
+  --rosa: #f37fba;
+  --rosa-suave: #5a2a48;
+  --fondo: #150f1f;
+  --superficie: #20172e;
+  --superficie-2: #2a1f3b;
+  --texto: #f3eafb;
+  --tenue: #ab9bbf;
+  --borde: #3a2b50;
+  --ok: #5fd0a0;
+  --alerta: #ff8cc4;
+  --sombra: 0 6px 24px rgba(0, 0, 0, .35);
+  --hoja: #2f2342;
+  --pieza: #4a3a78;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--fondo); color: var(--texto);
+  font: 14px/1.45 "Segoe UI", system-ui, sans-serif;
+  display: flex; flex-direction: column;
+}
+header {
+  background: var(--degrade); color: #fff;
+  display: flex; align-items: center; gap: 14px; padding: 10px 20px;
+}
+header img { width: 42px; height: 42px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+header h1 { font-size: 18px; margin: 0; font-weight: 700; letter-spacing: .2px; }
+header h1 small { display: block; font-size: 11px; font-weight: 400; opacity: .85; }
+nav { display: flex; gap: 4px; margin-left: 24px; flex: 1; }
+nav button {
+  background: transparent; color: #fff; border: 0; padding: 8px 16px; border-radius: 999px;
+  font: inherit; font-weight: 600; cursor: pointer; opacity: .8;
+}
+nav button:hover { background: rgba(255,255,255,.15); opacity: 1; }
+nav button.activo { background: #fff; color: var(--violeta-fuerte); opacity: 1; }
+[data-tema="oscuro"] nav button.activo { background: #150f1f; color: #fff; }
+.btn-tema {
+  background: rgba(255,255,255,.2); color: #fff; border: 0; border-radius: 999px;
+  padding: 8px 14px; font: inherit; cursor: pointer; white-space: nowrap;
+}
+.btn-tema:hover { background: rgba(255,255,255,.32); }
+main { flex: 1; overflow: auto; padding: 20px; }
+section { display: none; max-width: 1280px; margin: 0 auto; }
+section.activo { display: block; }
+
+.tarjeta {
+  background: var(--superficie); border: 1px solid var(--borde); border-radius: 16px;
+  padding: 18px; box-shadow: var(--sombra); margin-bottom: 16px;
+}
+.tarjeta h2 { margin: 0 0 12px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.paso {
+  background: var(--degrade); color: #fff; width: 24px; height: 24px; border-radius: 50%;
+  display: inline-grid; place-items: center; font-size: 12px; font-weight: 700; flex: none;
+}
+.cot { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1000px) { .cot { grid-template-columns: 1fr; } }
+.fila { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.campo { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 110px; }
+.campo.chico { flex: 0 0 96px; min-width: 96px; }
+.campo.grande { flex: 2; min-width: 200px; }
+label, .etq { font-size: 11.5px; color: var(--tenue); font-weight: 600; }
+input, select, textarea {
+  font: inherit; color: var(--texto); background: var(--superficie-2);
+  border: 1px solid var(--borde); border-radius: 10px; padding: 8px 10px; width: 100%; min-width: 0;
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--violeta); outline-offset: 0; border-color: transparent; }
+input[type=checkbox] { width: auto; accent-color: var(--violeta-fuerte); }
+textarea { resize: vertical; min-height: 56px; }
+button.b {
+  font: inherit; font-weight: 600; cursor: pointer; border-radius: 10px; padding: 8px 14px;
+  border: 1px solid var(--borde); background: var(--superficie); color: var(--texto);
+}
+button.b:hover { border-color: var(--violeta); color: var(--violeta-fuerte); }
+button.b.primario { background: var(--degrade); color: #fff; border-color: transparent; }
+button.b.primario:hover { filter: brightness(1.07); color: #fff; }
+button.b.peligro:hover { border-color: var(--alerta); color: var(--alerta); }
+button.b.mini { padding: 4px 9px; font-size: 12.5px; }
+.acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+.linea {
+  border: 1px solid var(--borde); border-radius: 12px; padding: 10px; margin-bottom: 8px;
+  background: var(--superficie-2);
+}
+.linea input, .linea select { background: var(--superficie); }
+.pista { font-size: 12px; color: var(--tenue); margin-top: 6px; }
+.pista.mal { color: var(--alerta); font-weight: 600; }
+.vacio { color: var(--tenue); text-align: center; padding: 22px 10px; }
+
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 11.5px; color: var(--tenue); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--borde); }
+td { padding: 8px; border-bottom: 1px solid var(--borde); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chip {
+  display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  background: var(--superficie-2); color: var(--violeta-fuerte); border: 1px solid var(--borde);
+}
+[data-tema="oscuro"] .chip { color: var(--violeta); }
+.chip.mal { background: var(--rosa-suave); color: var(--alerta); border-color: transparent; }
+[data-tema="oscuro"] .chip.mal { color: #ffd3e8; }
+
+.resumen td { padding: 6px 0; }
+.resumen tr.sub td { color: var(--tenue); font-size: 13px; }
+.resumen tr.total td { font-weight: 700; border-top: 2px solid var(--borde); }
+.resumen tr.ganancia td { color: var(--rosa); font-weight: 700; }
+.precio-final {
+  background: var(--degrade); color: #fff; border-radius: 14px; padding: 16px 18px; margin-top: 12px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.precio-final .t { font-size: 12px; opacity: .9; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; }
+.precio-final .v { font-size: 30px; font-weight: 800; line-height: 1.1; }
+.precio-final .u { font-size: 12.5px; opacity: .92; text-align: right; }
+.previa { display: flex; gap: 14px; flex-wrap: wrap; }
+.previa figure { margin: 0; text-align: center; font-size: 12px; color: var(--tenue); }
+.previa svg { display: block; margin: 0 auto 6px; filter: drop-shadow(0 2px 6px rgba(0,0,0,.15)); }
+
+.grilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.grilla .tarjeta { margin: 0; }
+.grilla h3 { margin: 0 0 4px; font-size: 15px; }
+.grilla .precio { font-size: 20px; font-weight: 800; color: var(--violeta-fuerte); }
+[data-tema="oscuro"] .grilla .precio { color: var(--violeta); }
+.barra { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.barra .espacio { flex: 1; }
+.barra input[type=search] { max-width: 280px; }
+.barra select { max-width: 200px; }
+
+dialog {
+  border: 1px solid var(--borde); border-radius: 18px; padding: 0; width: min(640px, 94vw);
+  background: var(--superficie); color: var(--texto); box-shadow: 0 20px 60px rgba(0,0,0,.35);
+}
+dialog::backdrop { background: rgba(30, 15, 50, .55); }
+dialog h2 { margin: 0; padding: 14px 20px; background: var(--degrade); color: #fff; font-size: 16px; }
+dialog form { padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+dialog .pie { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.marca { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--texto); font-weight: 400; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 16px; }
+.kpis .tarjeta { margin: 0; padding: 14px 16px; }
+.kpis .v { font-size: 21px; font-weight: 800; }
+.kpis .rosa { color: var(--rosa); }
+.barra input[type=month] { max-width: 180px; }
+.cal-titulo { font-size: 18px; font-weight: 700; min-width: 190px; text-align: center; }
+.cal-titulo::first-letter { text-transform: uppercase; }
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.cal .dia-sem { font-size: 11.5px; font-weight: 600; color: var(--tenue); text-align: center; padding: 2px 0 4px; }
+.cal .dia {
+  background: var(--superficie-2); border: 1px solid var(--borde); border-radius: 12px; padding: 6px 8px;
+  height: 104px; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; gap: 3px;
+}
+.cal .dia:hover { border-color: var(--violeta); }
+.cal .dia.fuera { opacity: .45; }
+.cal .dia .n { font-weight: 700; font-size: 13px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; flex: none; }
+.cal .dia.hoy .n { background: var(--degrade); color: #fff; }
+.cal .dia.con { background: var(--superficie); border-color: var(--rosa); box-shadow: inset 4px 0 0 var(--rosa); }
+.cal .dia .txt { font-size: 12px; line-height: 1.3; overflow-wrap: anywhere; overflow: hidden; }
+.proximo { display: flex; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--borde); cursor: pointer; }
+.proximo:last-child { border-bottom: 0; }
+.proximo .f { flex: 0 0 150px; font-weight: 700; color: var(--violeta-fuerte); text-transform: capitalize; }
+[data-tema="oscuro"] .proximo .f { color: var(--violeta); }
+.proximo .txt { overflow-wrap: anywhere; flex: 1; min-width: 0; }
+.txt ul, .txt ol, .editor ul, .editor ol { margin: 2px 0; padding-left: 18px; }
+.txt p, .editor p { margin: 0; }
+.herramientas { display: flex; gap: 6px; }
+.herramientas button { min-width: 38px; }
+.herramientas button.activo { background: var(--degrade); color: #fff; border-color: transparent; }
+.herramientas button[data-color].activo { background: var(--superficie); outline: 2px solid var(--violeta); }
+.herramientas .muestra { display: block; width: 16px; height: 16px; border-radius: 4px; margin: 1px auto; border: 1px solid rgba(0,0,0,.15); }
+.herramientas .sep { width: 1px; background: var(--borde); margin: 0 4px; }
+/* El resaltado lleva siempre texto oscuro para que se lea igual en modo claro y oscuro */
+mark, .editor span[style*="background-color: rgb("] { color: #2a1b3d; border-radius: 3px; padding: 0 2px; }
+mark[data-c="amarillo"] { background: #ffe866; }
+mark[data-c="rojo"] { background: #ff9aa2; }
+mark[data-c="verde"] { background: #9be7a8; }
+.editor {
+  background: var(--superficie-2); border: 1px solid var(--borde); border-radius: 10px; padding: 10px 12px;
+  min-height: 220px; max-height: 50vh; overflow: auto; overflow-wrap: anywhere;
+}
+.editor:focus { outline: 2px solid var(--violeta); border-color: transparent; }
+.editor:empty::before { content: attr(data-placeholder); color: var(--tenue); }
+#toast {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--texto); color: var(--fondo); padding: 10px 18px; border-radius: 999px;
+  font-weight: 600; opacity: 0; pointer-events: none; transition: .25s; z-index: 50;
+}
+#toast.ver { opacity: 1; transform: translateX(-50%); }
+</style>
+</head>
+<body>
+<header>
+  <img src="logo.jpg" alt="Munay">
+  <h1>Munay<small>Cotizador</small></h1>
+  <nav>
+    <button data-tab="cot" class="activo">Cotizar</button>
+    <button data-tab="insumos">Insumos</button>
+    <button data-tab="productos">Productos</button>
+    <button data-tab="historial">Historial</button>
+    <button data-tab="ventas">Ventas</button>
+    <button data-tab="pedidos">Pedidos</button>
+  </nav>
+  <button class="btn-tema" data-acc="exportar" title="Guardar una copia de todos tus datos">⬇ Backup</button>
+  <button class="btn-tema" id="btn-tema"></button>
+</header>
+
+<main>
+  <section id="tab-cot" class="activo">
+    <div class="cot">
+      <div id="cot-form"></div>
+      <div id="cot-res"></div>
+    </div>
+  </section>
+
+  <section id="tab-insumos">
+    <div class="barra">
+      <input type="search" id="ins-buscar" placeholder="Buscar insumo…">
+      <select id="ins-cat"></select>
+      <span class="espacio"></span>
+      <button class="b" data-acc="importar">Restaurar backup</button>
+      <button class="b primario" data-acc="ins-nuevo">+ Nuevo insumo</button>
+    </div>
+    <div class="tarjeta" id="ins-tabla"></div>
+  </section>
+
+  <section id="tab-productos">
+    <div class="barra">
+      <span class="pista">Los productos son recetas guardadas: insumos, mano de obra y margen. Se crean desde la pestaña Cotizar.</span>
+      <span class="espacio"></span>
+      <button class="b primario" data-acc="prod-nuevo">+ Nuevo producto</button>
+    </div>
+    <div class="grilla" id="prod-lista"></div>
+  </section>
+
+  <section id="tab-historial">
+    <div class="tarjeta" id="hist-tabla"></div>
+  </section>
+
+  <section id="tab-ventas">
+    <div class="barra">
+      <input type="search" id="ven-buscar" placeholder="Buscar por producto o cliente…">
+      <input type="month" id="ven-mes" title="Filtrar por mes">
+      <button class="b mini" data-acc="ven-todas">Ver todas</button>
+      <span class="espacio"></span>
+      <span class="pista" style="margin:0">Las ventas se registran desde Cotizar o desde el Historial.</span>
+    </div>
+    <div class="kpis" id="ven-kpis"></div>
+    <div class="tarjeta" id="ven-tabla"></div>
+  </section>
+
+  <section id="tab-pedidos">
+    <div class="tarjeta">
+      <div class="barra">
+        <button class="b" data-acc="ped-mes" data-d="-1">‹</button>
+        <span class="cal-titulo" id="cal-titulo"></span>
+        <button class="b" data-acc="ped-mes" data-d="1">›</button>
+        <button class="b" data-acc="ped-hoy">Hoy</button>
+        <span class="espacio"></span>
+        <span class="pista" style="margin:0">Hacé clic en un día para anotar o editar el pedido.</span>
+      </div>
+      <div class="cal" id="cal"></div>
+    </div>
+    <div class="tarjeta"><h2>Próximos pedidos</h2><div id="ped-proximos"></div></div>
+  </section>
+</main>
+
+<dialog id="dlg-insumo">
+  <h2 id="dlg-titulo">Insumo</h2>
+  <form method="dialog" id="form-insumo">
+    <div class="fila">
+      <div class="campo grande"><label>Nombre</label><input name="nombre" required></div>
+      <div class="campo"><label>Categoría</label><input name="categoria" list="lista-cat"></div>
+    </div>
+    <div class="fila">
+      <div class="campo"><label>Precio de compra ($)</label><input name="precio" type="number" min="0" step="any" required></div>
+      <div class="campo"><label>Cantidad que trae</label><input name="cantPaquete" type="number" min="0" step="any" required></div>
+      <div class="campo"><label>Unidad</label><input name="unidad" list="lista-uni" required></div>
+    </div>
+    <div class="pista" id="dlg-costo"></div>
+    <div class="fila">
+      <div class="campo"><label>Cantidad en stock</label><input name="stock" type="number" step="any"></div>
+      <div class="campo"><label>Stock mínimo (aviso)</label><input name="stockMin" type="number" min="0" step="any"></div>
+      <div class="campo"><label>Proveedor</label><input name="proveedor"></div>
+    </div>
+    <label class="marca"><input type="checkbox" name="esHoja"> Es una hoja o pliego (permite calcular cuántas piezas entran por corte)</label>
+    <div class="fila" id="dlg-hoja">
+      <div class="campo"><label>Tamaño</label>
+        <select name="formato">
+          <option value="">Personalizado</option>
+          <option value="21x29.7">A4 (21 × 29,7)</option>
+          <option value="29.7x42">A3 (29,7 × 42)</option>
+          <option value="32.9x48.3">A3+ (32,9 × 48,3)</option>
+          <option value="10x15">A6 / 4R (10 × 15)</option>
+        </select>
+      </div>
+      <div class="campo"><label>Ancho (cm)</label><input name="ancho" type="number" min="0" step="any"></div>
+      <div class="campo"><label>Alto (cm)</label><input name="alto" type="number" min="0" step="any"></div>
+    </div>
+    <div class="campo"><label>Notas</label><textarea name="notas"></textarea></div>
+    <div class="pie">
+      <button class="b" type="button" data-acc="dlg-cerrar">Cancelar</button>
+      <button class="b primario" type="submit">Guardar</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="dlg-pedido">
+  <h2 id="dlg-pedido-titulo">Pedido</h2>
+  <form method="dialog" id="form-pedido">
+    <div class="herramientas" id="ped-herramientas">
+      <button class="b mini" type="button" data-cmd="bold" title="Negrita (Ctrl+B)"><b>N</b></button>
+      <button class="b mini" type="button" data-cmd="underline" title="Subrayado (Ctrl+U)"><u>S</u></button>
+      <button class="b mini" type="button" data-cmd="insertUnorderedList" title="Lista de ítems">• Ítems</button>
+      <span class="sep"></span>
+      <button class="b mini" type="button" data-color="amarillo" title="Resaltar en amarillo"><span class="muestra" style="background:#ffe866"></span></button>
+      <button class="b mini" type="button" data-color="rojo" title="Resaltar en rojo"><span class="muestra" style="background:#ff9aa2"></span></button>
+      <button class="b mini" type="button" data-color="verde" title="Resaltar en verde"><span class="muestra" style="background:#9be7a8"></span></button>
+    </div>
+    <div class="editor" id="ped-editor" contenteditable="true" data-placeholder="Escribí acá el pedido…"></div>
+    <div class="pie">
+      <button class="b peligro" type="button" data-acc="ped-borrar" id="ped-borrar" style="margin-right:auto">Borrar</button>
+      <button class="b" type="button" data-acc="dlg-cerrar">Cancelar</button>
+      <button class="b primario" type="submit">Guardar</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="dlg-venta">
+  <h2 id="dlg-venta-titulo">Registrar venta</h2>
+  <form method="dialog" id="form-venta">
+    <div class="fila">
+      <div class="campo grande"><label>Producto</label><input name="nombre" required></div>
+      <div class="campo"><label>Cliente</label><input name="cliente"></div>
+    </div>
+    <div class="fila">
+      <div class="campo"><label>Fecha</label><input name="fecha" type="date" required></div>
+      <div class="campo"><label>Medio de pago</label>
+        <select name="medioPago"><option>Efectivo</option><option>Transferencia</option><option>Mercado Pago</option><option>Tarjeta</option><option>Otro</option></select></div>
+      <div class="campo"><label>Precio de venta ($)</label><input name="precio" type="number" min="0" step="any" required></div>
+    </div>
+    <div class="pista" id="dlg-venta-info"></div>
+    <label class="marca" id="dlg-venta-stock"><input type="checkbox" name="descontar"> Descontar del stock la materia prima usada</label>
+    <div class="campo"><label>Notas</label><textarea name="notas"></textarea></div>
+    <div class="pie">
+      <button class="b" type="button" data-acc="dlg-cerrar">Cancelar</button>
+      <button class="b primario" type="submit">Guardar venta</button>
+    </div>
+  </form>
+</dialog>
+<datalist id="lista-cat"></datalist>
+<datalist id="lista-uni">
+  <option>hoja</option><option>unidad</option><option>metro</option><option>cm</option>
+  <option>gramo</option><option>kg</option><option>ml</option><option>litro</option><option>rollo</option>
+</datalist>
+<div id="toast"></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = v => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : 0; };
+const fmtPesos = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 });
+const fmtNum = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
+const pesos = n => fmtPesos.format(n || 0);
+const cant = n => fmtNum.format(n || 0);
+const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+/* ---------- Datos ---------- */
+const cotVacia = () => ({ productoId: null, nombre: '', cliente: '', cantidad: 1, margen: 50, manoObra: 0, otros: 0, redondeo: 0, items: [] });
+
+function datosIniciales() {
+  // Insumos de ejemplo con precios ficticios: editalos o borralos desde la pestaña Insumos
+  const hoja = (nombre, categoria, precio, cantPaquete, ancho, alto, stock) =>
+    ({ id: nuevoId(), nombre, categoria, unidad: 'hoja', precio, cantPaquete, stock, stockMin: 5, proveedor: '', notas: '', esHoja: true, ancho, alto });
+  const otro = (nombre, categoria, unidad, precio, cantPaquete, stock) =>
+    ({ id: nuevoId(), nombre, categoria, unidad, precio, cantPaquete, stock, stockMin: 0, proveedor: '', notas: '', esHoja: false, ancho: 0, alto: 0 });
+  const insumos = [
+    hoja('Papel fotográfico glossy A4 180 g', 'Papel fotográfico', 6500, 20, 21, 29.7, 40),
+    hoja('Papel fotográfico adhesivo A4', 'Papel fotográfico', 8200, 20, 21, 29.7, 20),
+    hoja('Papel fotográfico A3 230 g', 'Papel fotográfico', 14500, 20, 29.7, 42, 10),
+    hoja('Opalina A4 180 g', 'Cartulinas', 9800, 50, 21, 29.7, 50),
+    otro('Tinta', 'Tintas', 'ml', 7000, 100, 400),
+    otro('Bolsa celofán 10 × 15', 'Packaging', 'unidad', 3500, 100, 100),
+  ];
+  const productos = [{
+    id: nuevoId(), nombre: 'Tarjetas personales 9 × 5 (x100)', margen: 80, manoObra: 1500, otros: 0, redondeo: 100,
+    items: [
+      { insumoId: insumos[3].id, modo: 'corte', cantidad: 1, piezas: 100, ancho: 9, alto: 5, sep: 2 },
+      { insumoId: insumos[4].id, modo: 'cantidad', cantidad: 3, piezas: 1, ancho: 5, alto: 5, sep: 2 },
+    ],
+  }];
+  return { tema: 'claro', insumos, productos, historial: [], ventas: [], pedidos: {}, borrador: cotVacia() };
+}
+
+let estado = null;
+let enApp = false;
+let temporizador = null;
+
+function guardar() {
+  clearTimeout(temporizador);
+  temporizador = setTimeout(() => {
+    const texto = JSON.stringify(estado);
+    if (enApp) window.pywebview.api.guardar(texto);
+    else try { localStorage.setItem('munay-cotizador', texto); } catch (e) { /* sin almacenamiento */ }
+  }, 250);
+}
+
+function normalizar(d) {
+  const base = datosIniciales();
+  if (!d || !Array.isArray(d.insumos)) return base;
+  return {
+    tema: d.tema === 'oscuro' ? 'oscuro' : 'claro',
+    insumos: d.insumos,
+    productos: Array.isArray(d.productos) ? d.productos : [],
+    historial: Array.isArray(d.historial) ? d.historial : [],
+    ventas: Array.isArray(d.ventas) ? d.ventas : [],
+    pedidos: d.pedidos && typeof d.pedidos === 'object' ? d.pedidos : {},
+    borrador: Object.assign(cotVacia(), d.borrador || {}),
+  };
+}
+
+async function iniciar() {
+  let texto = null;
+  enApp = !!(window.pywebview && window.pywebview.api);
+  try {
+    texto = enApp ? await window.pywebview.api.cargar() : localStorage.getItem('munay-cotizador');
+  } catch (e) { texto = null; }
+  let d = null;
+  try { d = texto ? JSON.parse(texto) : null; } catch (e) { d = null; }
+  estado = normalizar(d);
+  aplicarTema();
+  pintarTodo();
+}
+
+/* ---------- Cálculo ---------- */
+const insumoPorId = id => estado.insumos.find(i => i.id === id);
+const costoUnitario = i => (num(i.cantPaquete) > 0 ? num(i.precio) / num(i.cantPaquete) : 0);
+
+// Cuántas piezas de w×h entran en una hoja W×H dejando "sep" entre piezas y contra el borde.
+// Prueba la pieza derecha y girada 90° y se queda con la que más rinde.
+function encaje(W, H, w, h, sep) {
+  const prueba = (w, h, girada) => {
+    if (w <= 0 || h <= 0) return { cols: 0, filas: 0, total: 0, w, h, girada };
+    const cols = Math.max(0, Math.floor((W - sep) / (w + sep) + 1e-9));
+    const filas = Math.max(0, Math.floor((H - sep) / (h + sep) + 1e-9));
+    return { cols, filas, total: cols * filas, w, h, girada };
+  };
+  const a = prueba(w, h, false), b = prueba(h, w, true);
+  return b.total > a.total ? b : a;
+}
+
+function calcular(c) {
+  const n = Math.max(1, num(c.cantidad));
+  const lineas = [];
+  (c.items || []).forEach((it, idx) => {
+    const ins = insumoPorId(it.insumoId);
+    if (!ins) return;
+    const cu = costoUnitario(ins);
+    const l = { idx, ins, cu, usados: 0, enc: null, piezasTotal: 0 };
+    if (it.modo === 'corte' && ins.esHoja) {
+      l.enc = encaje(num(ins.ancho), num(ins.alto), num(it.ancho), num(it.alto), num(it.sep) / 10);
+      l.piezasTotal = Math.ceil(num(it.piezas) * n);
+      // Se cobra la hoja entera aunque no se use toda
+      l.usados = l.enc.total > 0 ? Math.ceil(l.piezasTotal / l.enc.total) : 0;
+    } else {
+      l.usados = num(it.cantidad) * n;
+    }
+    l.costo = l.usados * cu;
+    l.falta = l.usados > num(ins.stock);
+    lineas.push(l);
+  });
+  const materiales = lineas.reduce((s, l) => s + l.costo, 0);
+  const manoObra = num(c.manoObra) * n;
+  const otros = num(c.otros);
+  const costo = materiales + manoObra + otros;
+  const margenPedido = num(c.margen);
+  let precio = costo * (1 + margenPedido / 100);
+  const red = num(c.redondeo);
+  if (red > 0) precio = Math.ceil(precio / red - 1e-9) * red;
+  const ganancia = precio - costo;
+  // Con redondeo el margen real queda apenas por encima del pedido
+  const margenReal = costo > 0 ? ganancia / costo * 100 : margenPedido;
+  return { n, lineas, materiales, manoObra, otros, costo, margenPedido, margenReal, ganancia, precio, redondeado: red > 0 };
+}
+
+/* ---------- Pestaña Cotizar ---------- */
+function opcionesInsumos(sel) {
+  const grupos = {};
+  estado.insumos.forEach(i => (grupos[i.categoria || 'Sin categoría'] ||= []).push(i));
+  return '<option value="">Elegí un insumo…</option>' + Object.keys(grupos).sort().map(g =>
+    `<optgroup label="${esc(g)}">` + grupos[g].map(i =>
+      `<option value="${i.id}" ${i.id === sel ? 'selected' : ''}>${esc(i.nombre)} — ${pesos(costoUnitario(i))}/${esc(i.unidad)}</option>`).join('') + '</optgroup>').join('');
+}
+
+function pintarCotForm() {
+  const c = estado.borrador;
+  const lineas = c.items.map((it, i) => {
+    const ins = insumoPorId(it.insumoId);
+    const corte = ins && ins.esHoja && it.modo === 'corte';
+    return `<div class="linea">
+      <div class="fila">
+        <div class="campo grande"><label>Insumo</label><select data-i="${i}" data-k="insumoId" data-repintar>${opcionesInsumos(it.insumoId)}</select></div>
+        ${ins && ins.esHoja ? `<div class="campo"><label>Se calcula</label><select data-i="${i}" data-k="modo" data-repintar>
+          <option value="corte" ${corte ? 'selected' : ''}>Por corte de piezas</option>
+          <option value="cantidad" ${corte ? '' : 'selected'}>Por cantidad de hojas</option></select></div>` : ''}
+        <button class="b mini peligro" data-acc="cot-quitar" data-i="${i}" title="Quitar">✕</button>
+      </div>
+      ${ins ? (corte ? `<div class="fila" style="margin-top:8px">
+        <div class="campo"><label>Piezas por producto</label><input type="number" min="0" step="any" data-i="${i}" data-k="piezas" value="${num(it.piezas)}"></div>
+        <div class="campo"><label>Ancho pieza (cm)</label><input type="number" min="0" step="any" data-i="${i}" data-k="ancho" value="${num(it.ancho)}"></div>
+        <div class="campo"><label>Alto pieza (cm)</label><input type="number" min="0" step="any" data-i="${i}" data-k="alto" value="${num(it.alto)}"></div>
+        <div class="campo"><label>Margen de corte (mm)</label><input type="number" min="0" step="any" data-i="${i}" data-k="sep" value="${num(it.sep)}"></div>
+      </div>` : `<div class="fila" style="margin-top:8px">
+        <div class="campo chico" style="flex-basis:200px"><label>Cantidad por producto (${esc(ins.unidad)})</label><input type="number" min="0" step="any" data-i="${i}" data-k="cantidad" value="${num(it.cantidad)}"></div>
+      </div>`) : ''}
+      <div class="pista" id="pista-${i}"></div>
+    </div>`;
+  }).join('');
+
+  $('#cot-form').innerHTML = `
+    <div class="tarjeta">
+      <h2><span class="paso">1</span> Producto</h2>
+      <div class="fila">
+        <div class="campo grande"><label>Cargar un producto guardado</label>
+          <select id="cot-cargar"><option value="">— Producto nuevo —</option>${estado.productos.map(p =>
+            `<option value="${p.id}" ${p.id === c.productoId ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></div>
+        <button class="b" data-acc="cot-limpiar">Limpiar</button>
+      </div>
+      <div class="fila" style="margin-top:10px">
+        <div class="campo grande"><label>Nombre del producto</label><input data-f="nombre" value="${esc(c.nombre)}" placeholder="Ej.: Stickers redondos 5 cm"></div>
+        <div class="campo"><label>Cliente (opcional)</label><input data-f="cliente" value="${esc(c.cliente)}"></div>
+        <div class="campo chico"><label>Cantidad</label><input type="number" min="1" step="1" data-f="cantidad" data-n value="${num(c.cantidad)}"></div>
+      </div>
+    </div>
+    <div class="tarjeta">
+      <h2><span class="paso">2</span> Materia prima</h2>
+      ${lineas || '<div class="vacio">Todavía no agregaste insumos a este producto.</div>'}
+      <button class="b" data-acc="cot-agregar">+ Agregar insumo</button>
+    </div>
+    <div class="tarjeta">
+      <h2><span class="paso">3</span> Otros costos y ganancia</h2>
+      <div class="fila">
+        <div class="campo"><label>Mano de obra por producto ($)</label><input type="number" min="0" step="any" data-f="manoObra" data-n value="${num(c.manoObra)}"></div>
+        <div class="campo"><label>Otros costos del pedido ($)</label><input type="number" min="0" step="any" data-f="otros" data-n value="${num(c.otros)}"></div>
+        <div class="campo"><label>Margen de ganancia (%)</label><input type="number" min="0" step="any" data-f="margen" data-n value="${num(c.margen)}"></div>
+        <div class="campo"><label>Redondear precio a</label>
+          <select data-f="redondeo" data-n>${[[0, 'Sin redondeo'], [10, '$ 10'], [50, '$ 50'], [100, '$ 100'], [500, '$ 500'], [1000, '$ 1.000']].map(([v, t]) =>
+            `<option value="${v}" ${num(c.redondeo) === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      </div>
+      <div class="pista">El margen se aplica sobre el costo total: precio = costo × (1 + margen ÷ 100).</div>
+    </div>`;
+  pintarCotRes();
+}
+
+function dibujoHoja(l, it) {
+  const W = num(l.ins.ancho), H = num(l.ins.alto), sep = num(it.sep) / 10, e = l.enc;
+  if (W <= 0 || H <= 0) return '';
+  const k = 150 / Math.max(W, H);
+  let piezas = '';
+  for (let f = 0; f < e.filas; f++) for (let c = 0; c < e.cols; c++)
+    piezas += `<rect x="${(sep + c * (e.w + sep)) * k}" y="${(sep + f * (e.h + sep)) * k}" width="${e.w * k}" height="${e.h * k}" rx="1.5" fill="var(--pieza)" stroke="var(--violeta)" stroke-width=".7"/>`;
+  return `<figure><svg width="${W * k}" height="${H * k}"><rect width="100%" height="100%" fill="var(--hoja)" stroke="var(--borde)"/>${piezas}</svg>
+    ${esc(l.ins.nombre)}<br>${e.cols} × ${e.filas} = <b>${e.total}</b> por hoja${e.girada ? ' (pieza girada)' : ''}</figure>`;
+}
+
+function pintarCotRes() {
+  const c = estado.borrador, r = calcular(c);
+  // Pistas debajo de cada insumo
+  c.items.forEach((it, i) => {
+    const p = $('#pista-' + i); if (!p) return;
+    const l = r.lineas.find(x => x.idx === i);
+    if (!l) { p.textContent = ''; return; }
+    let t;
+    if (l.enc) {
+      t = l.enc.total > 0
+        ? `Entran ${l.enc.total} piezas por hoja · ${cant(l.piezasTotal)} piezas → ${cant(l.usados)} hoja${l.usados === 1 ? '' : 's'} · ${pesos(l.costo)}`
+        : 'La pieza no entra en la hoja con esas medidas.';
+    } else t = `${cant(l.usados)} ${l.ins.unidad} en total · ${pesos(l.costo)}`;
+    if (l.falta) t += ` · Stock insuficiente (hay ${cant(l.ins.stock)})`;
+    p.textContent = t;
+    p.className = 'pista' + (l.falta || (l.enc && !l.enc.total) ? ' mal' : '');
+  });
+
+  const filas = r.lineas.map(l => `<tr>
+    <td>${esc(l.ins.nombre)}${l.falta ? ' <span class="chip mal">sin stock</span>' : ''}</td>
+    <td class="num">${cant(l.usados)} ${esc(l.ins.unidad)}</td>
+    <td class="num">${pesos(l.cu)}</td>
+    <td class="num">${pesos(l.costo)}</td></tr>`).join('');
+  const previas = r.lineas.filter(l => l.enc && l.enc.total > 0).map(l => dibujoHoja(l, c.items[l.idx])).join('');
+
+  $('#cot-res').innerHTML = `
+    <div class="tarjeta">
+      <h2>Tu cotización</h2>
+      ${r.lineas.length ? `<table>
+        <thead><tr><th>Insumo</th><th class="num">Cantidad</th><th class="num">Costo unit.</th><th class="num">Subtotal</th></tr></thead>
+        <tbody>${filas}</tbody></table>` : '<div class="vacio">Agregá insumos para ver el detalle de costos.</div>'}
+      <table class="resumen" style="margin-top:12px">
+        <tr class="sub"><td>Materia prima</td><td class="num">${pesos(r.materiales)}</td></tr>
+        <tr class="sub"><td>Mano de obra (${cant(r.n)} × ${pesos(num(c.manoObra))})</td><td class="num">${pesos(r.manoObra)}</td></tr>
+        <tr class="sub"><td>Otros costos</td><td class="num">${pesos(r.otros)}</td></tr>
+        <tr class="total"><td>Costo total</td><td class="num">${pesos(r.costo)}</td></tr>
+        <tr class="ganancia"><td>Margen de ganancia (${cant(r.margenReal)} %)</td><td class="num">${pesos(r.ganancia)}</td></tr>
+      </table>
+      ${r.redondeado && Math.abs(r.margenReal - r.margenPedido) > 0.005 ? `<div class="pista">Pediste ${cant(r.margenPedido)} %; por el redondeo el margen real queda en ${cant(r.margenReal)} %.</div>` : ''}
+      <div class="precio-final">
+        <div><div class="t">Precio final sugerido</div><div class="v">${pesos(r.precio)}</div></div>
+        <div class="u">${cant(r.n)} unidad${r.n === 1 ? '' : 'es'}<br><b>${pesos(r.precio / r.n)}</b> c/u · costo ${pesos(r.costo / r.n)} c/u</div>
+      </div>
+      <div class="acciones" style="margin-top:14px">
+        <button class="b primario" data-acc="cot-guardar">Guardar cotización</button>
+        <button class="b" data-acc="cot-vender">Registrar venta</button>
+        <button class="b" data-acc="cot-producto">${c.productoId ? 'Actualizar producto' : 'Guardar como producto'}</button>
+        <button class="b" data-acc="cot-copiar">Copiar resumen</button>
+      </div>
+    </div>
+    ${previas ? `<div class="tarjeta"><h2>Vista previa de cortes</h2><div class="previa">${previas}</div></div>` : ''}`;
+}
+
+function textoResumen(c, r) {
+  const L = [`COTIZACIÓN — ${c.nombre || 'Producto'}`];
+  if (c.cliente) L.push(`Cliente: ${c.cliente}`);
+  L.push(`Cantidad: ${cant(r.n)}`, '', 'Costos:');
+  r.lineas.forEach(l => L.push(`  ${l.ins.nombre}: ${cant(l.usados)} ${l.ins.unidad} × ${pesos(l.cu)} = ${pesos(l.costo)}`));
+  L.push(`  Mano de obra: ${pesos(r.manoObra)}`, `  Otros costos: ${pesos(r.otros)}`, `Costo total: ${pesos(r.costo)}`,
+    `Margen de ganancia: ${cant(r.margenReal)} % (${pesos(r.ganancia)})`,
+    `PRECIO FINAL SUGERIDO: ${pesos(r.precio)} (${pesos(r.precio / r.n)} c/u)`);
+  return L.join('\n');
+}
+
+/* ---------- Pestaña Insumos ---------- */
+function pintarInsumos() {
+  const cats = [...new Set(estado.insumos.map(i => i.categoria).filter(Boolean))].sort();
+  const selCat = $('#ins-cat'), previa = selCat.value;
+  selCat.innerHTML = '<option value="">Todas las categorías</option>' + cats.map(c => `<option ${c === previa ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  $('#lista-cat').innerHTML = cats.map(c => `<option>${esc(c)}</option>`).join('');
+  const q = $('#ins-buscar').value.trim().toLowerCase();
+  const lista = estado.insumos.filter(i =>
+    (!selCat.value || i.categoria === selCat.value) &&
+    (!q || [i.nombre, i.categoria, i.proveedor, i.notas].join(' ').toLowerCase().includes(q)))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  $('#ins-tabla').innerHTML = lista.length ? `<table>
+    <thead><tr><th>Nombre</th><th>Categoría</th><th class="num">Precio de compra</th><th class="num">Costo unitario</th><th class="num">Stock</th><th>Proveedor</th><th></th></tr></thead>
+    <tbody>${lista.map(i => {
+      const bajo = num(i.stock) <= num(i.stockMin);
+      return `<tr>
+        <td><b>${esc(i.nombre)}</b>${i.esHoja ? `<div class="pista" style="margin:0">Hoja ${cant(i.ancho)} × ${cant(i.alto)} cm</div>` : ''}</td>
+        <td>${i.categoria ? `<span class="chip">${esc(i.categoria)}</span>` : ''}</td>
+        <td class="num">${pesos(i.precio)}<div class="pista" style="margin:0">por ${cant(i.cantPaquete)} ${esc(i.unidad)}</div></td>
+        <td class="num">${pesos(costoUnitario(i))} / ${esc(i.unidad)}</td>
+        <td class="num">
+          <button class="b mini" data-acc="ins-stock" data-id="${i.id}" data-d="-1">−</button>
+          <span class="chip ${bajo ? 'mal' : ''}" title="${bajo ? 'Stock en el mínimo o por debajo' : ''}">${cant(i.stock)} ${esc(i.unidad)}</span>
+          <button class="b mini" data-acc="ins-stock" data-id="${i.id}" data-d="1">+</button>
+        </td>
+        <td>${esc(i.proveedor)}</td>
+        <td class="num">
+          <button class="b mini" data-acc="ins-editar" data-id="${i.id}">Editar</button>
+          <button class="b mini" data-acc="ins-duplicar" data-id="${i.id}">Duplicar</button>
+          <button class="b mini peligro" data-acc="ins-borrar" data-id="${i.id}">Eliminar</button>
+        </td></tr>`;
+    }).join('')}</tbody></table>` : '<div class="vacio">No hay insumos que coincidan. Cargá el primero con “+ Nuevo insumo”.</div>';
+}
+
+let insumoEditando = null;
+const formIns = $('#form-insumo');
+
+function abrirInsumo(id) {
+  insumoEditando = id || null;
+  const i = insumoPorId(id) || { nombre: '', categoria: '', unidad: 'unidad', precio: '', cantPaquete: 1, stock: 0, stockMin: 0, proveedor: '', notas: '', esHoja: false, ancho: 21, alto: 29.7 };
+  $('#dlg-titulo').textContent = id ? 'Editar insumo' : 'Nuevo insumo';
+  for (const k of ['nombre', 'categoria', 'unidad', 'precio', 'cantPaquete', 'stock', 'stockMin', 'proveedor', 'notas', 'ancho', 'alto']) formIns.elements[k].value = i[k] ?? '';
+  formIns.elements.esHoja.checked = !!i.esHoja;
+  const f = `${num(i.ancho)}x${num(i.alto)}`;
+  formIns.elements.formato.value = [...formIns.elements.formato.options].some(o => o.value === f) ? f : '';
+  refrescarDialogo();
+  $('#dlg-insumo').showModal();
+}
+
+function refrescarDialogo() {
+  const e = formIns.elements;
+  $('#dlg-hoja').style.display = e.esHoja.checked ? '' : 'none';
+  const cu = num(e.cantPaquete.value) > 0 ? num(e.precio.value) / num(e.cantPaquete.value) : 0;
+  $('#dlg-costo').textContent = `Costo unitario: ${pesos(cu)} por ${e.unidad.value || 'unidad'}`;
+}
+
+formIns.addEventListener('input', ev => {
+  const e = formIns.elements;
+  if (ev.target === e.formato && e.formato.value) [e.ancho.value, e.alto.value] = e.formato.value.split('x');
+  if (ev.target === e.ancho || ev.target === e.alto) e.formato.value = '';
+  if (ev.target === e.esHoja && e.esHoja.checked && (!e.unidad.value || e.unidad.value === 'unidad')) e.unidad.value = 'hoja';
+  refrescarDialogo();
+});
+
+formIns.addEventListener('submit', () => {
+  const e = formIns.elements;
+  const datos = {
+    nombre: e.nombre.value.trim(), categoria: e.categoria.value.trim(), unidad: e.unidad.value.trim() || 'unidad',
+    precio: num(e.precio.value), cantPaquete: num(e.cantPaquete.value) || 1, stock: num(e.stock.value), stockMin: num(e.stockMin.value),
+    proveedor: e.proveedor.value.trim(), notas: e.notas.value.trim(),
+    esHoja: e.esHoja.checked, ancho: num(e.ancho.value), alto: num(e.alto.value),
+  };
+  const existente = insumoPorId(insumoEditando);
+  if (existente) Object.assign(existente, datos); else estado.insumos.push({ id: nuevoId(), ...datos });
+  guardar(); pintarTodo(); aviso('Insumo guardado');
+});
+
+/* ---------- Pestaña Productos ---------- */
+function pintarProductos() {
+  $('#prod-lista').innerHTML = estado.productos.length ? estado.productos.map(p => {
+    const r = calcular({ ...p, cantidad: 1 });
+    return `<div class="tarjeta">
+      <h3>${esc(p.nombre)}</h3>
+      <div class="pista" style="margin:0 0 10px">${r.lineas.map(l => esc(l.ins.nombre)).join(' · ') || 'Sin insumos'}</div>
+      <div class="precio">${pesos(r.precio)}</div>
+      <div class="pista">Costo ${pesos(r.costo)} · Margen ${cant(r.margenReal)} % (${pesos(r.ganancia)})</div>
+      <div class="acciones" style="margin-top:12px">
+        <button class="b mini primario" data-acc="prod-cotizar" data-id="${p.id}">Cotizar / editar</button>
+        <button class="b mini" data-acc="prod-duplicar" data-id="${p.id}">Duplicar</button>
+        <button class="b mini peligro" data-acc="prod-borrar" data-id="${p.id}">Eliminar</button>
+      </div></div>`;
+  }).join('') : '<div class="vacio">Todavía no guardaste productos.</div>';
+}
+
+function cargarProducto(id) {
+  const p = estado.productos.find(x => x.id === id);
+  const b = estado.borrador;
+  estado.borrador = p
+    ? { ...cotVacia(), ...JSON.parse(JSON.stringify(p)), productoId: p.id, cliente: b.cliente, cantidad: b.cantidad }
+    : cotVacia();
+  delete estado.borrador.id;
+  guardar(); pintarCotForm();
+}
+
+/* ---------- Pestaña Historial ---------- */
+function pintarHistorial() {
+  $('#hist-tabla').innerHTML = estado.historial.length ? `<table>
+    <thead><tr><th>Fecha</th><th>Producto</th><th>Cliente</th><th class="num">Cant.</th><th class="num">Costo</th><th class="num">Margen</th><th class="num">Precio final</th><th></th></tr></thead>
+    <tbody>${estado.historial.map(h => `<tr>
+      <td>${new Date(h.fecha).toLocaleDateString('es-AR')}</td>
+      <td><b>${esc(h.nombre)}</b></td><td>${esc(h.cliente)}</td>
+      <td class="num">${cant(h.cantidad)}</td><td class="num">${pesos(h.costo)}</td>
+      <td class="num">${cant(h.margen)} %<div class="pista" style="margin:0">${pesos(h.ganancia)}</div></td>
+      <td class="num"><b>${pesos(h.precio)}</b></td>
+      <td class="num">
+        ${h.stockDescontado ? '<span class="chip">stock descontado</span>' : `<button class="b mini" data-acc="hist-stock" data-id="${h.id}">Descontar stock</button>`}
+        <button class="b mini primario" data-acc="hist-vender" data-id="${h.id}">Registrar venta</button>
+        <button class="b mini" data-acc="hist-copiar" data-id="${h.id}">Copiar</button>
+        <button class="b mini peligro" data-acc="hist-borrar" data-id="${h.id}">Eliminar</button>
+      </td></tr>`).join('')}</tbody></table>` : '<div class="vacio">Las cotizaciones que guardes van a aparecer acá.</div>';
+}
+
+/* ---------- Pestaña Ventas ---------- */
+const hoy = () => new Date().toLocaleDateString('sv-SE'); // aaaa-mm-dd en hora local
+const fechaCorta = f => String(f || '').split('-').reverse().join('/');
+const margenDe = (precio, costo) => (costo > 0 ? (precio - costo) / costo * 100 : 0);
+
+function pintarVentas() {
+  const q = $('#ven-buscar').value.trim().toLowerCase(), mes = $('#ven-mes').value;
+  const lista = estado.ventas.filter(v =>
+    (!mes || String(v.fecha).startsWith(mes)) &&
+    (!q || [v.nombre, v.cliente, v.notas].join(' ').toLowerCase().includes(q)))
+    .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  const total = lista.reduce((s, v) => s + num(v.precio), 0), costo = lista.reduce((s, v) => s + num(v.costo), 0);
+  $('#ven-kpis').innerHTML = `
+    <div class="tarjeta"><div class="etq">Ventas${mes ? ' del mes' : ''}</div><div class="v">${lista.length}</div></div>
+    <div class="tarjeta"><div class="etq">Total vendido</div><div class="v">${pesos(total)}</div></div>
+    <div class="tarjeta"><div class="etq">Costo</div><div class="v">${pesos(costo)}</div></div>
+    <div class="tarjeta"><div class="etq">Ganancia (${cant(margenDe(total, costo))} %)</div><div class="v rosa">${pesos(total - costo)}</div></div>`;
+  $('#ven-tabla').innerHTML = lista.length ? `<table>
+    <thead><tr><th>Fecha</th><th>Producto</th><th>Cliente</th><th class="num">Cant.</th><th class="num">Costo</th><th class="num">Cotizado</th><th class="num">Precio de venta</th><th class="num">Ganancia</th><th>Pago</th><th></th></tr></thead>
+    <tbody>${lista.map(v => {
+      const dif = num(v.precio) - num(v.precioCotizado);
+      return `<tr>
+      <td>${fechaCorta(v.fecha)}</td>
+      <td><b>${esc(v.nombre)}</b>${v.notas ? `<div class="pista" style="margin:0">${esc(v.notas)}</div>` : ''}</td>
+      <td>${esc(v.cliente)}</td>
+      <td class="num">${cant(v.cantidad)}</td><td class="num">${pesos(v.costo)}</td><td class="num">${pesos(v.precioCotizado)}</td>
+      <td class="num"><b>${pesos(v.precio)}</b>${Math.abs(dif) > 0.005 ? `<div class="pista" style="margin:0">${dif > 0 ? '+' : '−'} ${pesos(Math.abs(dif))} vs. cotizado</div>` : ''}</td>
+      <td class="num">${pesos(num(v.precio) - num(v.costo))}<div class="pista" style="margin:0">${cant(margenDe(num(v.precio), num(v.costo)))} %</div></td>
+      <td><span class="chip">${esc(v.medioPago)}</span></td>
+      <td class="num">
+        <button class="b mini" data-acc="ven-editar" data-id="${v.id}">Editar</button>
+        <button class="b mini peligro" data-acc="ven-borrar" data-id="${v.id}">Eliminar</button>
+      </td></tr>`;
+    }).join('')}</tbody></table>` : '<div class="vacio">No hay ventas registradas para mostrar.</div>';
+}
+
+let ventaBase = null; // venta que se está cargando o editando
+const formVenta = $('#form-venta');
+
+function abrirVenta(v, esNueva) {
+  ventaBase = { ...v, esNueva };
+  const e = formVenta.elements;
+  $('#dlg-venta-titulo').textContent = esNueva ? 'Registrar venta' : 'Editar venta';
+  for (const k of ['nombre', 'cliente', 'fecha', 'medioPago', 'precio', 'notas']) e[k].value = v[k] ?? '';
+  e.descontar.checked = false;
+  $('#dlg-venta-stock').style.display = !v.stockDescontado && (v.consumo || []).length ? '' : 'none';
+  refrescarVenta();
+  $('#dlg-venta').showModal();
+}
+
+function refrescarVenta() {
+  const v = ventaBase, precio = num(formVenta.elements.precio.value);
+  $('#dlg-venta-info').textContent = `Cantidad: ${cant(v.cantidad)} · Costo: ${pesos(v.costo)} · Precio cotizado: ${pesos(v.precioCotizado)} · ` +
+    `Ganancia con este precio: ${pesos(precio - v.costo)} (${cant(margenDe(precio, v.costo))} %)`;
+  $('#dlg-venta-info').className = 'pista' + (precio < v.costo ? ' mal' : '');
+}
+formVenta.addEventListener('input', refrescarVenta);
+
+formVenta.addEventListener('submit', () => {
+  const e = formVenta.elements, { esNueva, ...v } = ventaBase;
+  Object.assign(v, {
+    nombre: e.nombre.value.trim(), cliente: e.cliente.value.trim(), fecha: e.fecha.value, medioPago: e.medioPago.value,
+    precio: num(e.precio.value), notas: e.notas.value.trim(),
+  });
+  if (e.descontar.checked && !v.stockDescontado) {
+    v.consumo.forEach(c => { const i = insumoPorId(c.insumoId); if (i) i.stock = num(i.stock) - c.usados; });
+    v.stockDescontado = true;
+    const h = estado.historial.find(x => x.id === v.cotId); if (h) h.stockDescontado = true;
+  }
+  if (esNueva) estado.ventas.push(v); else Object.assign(estado.ventas.find(x => x.id === v.id), v);
+  guardar(); pintarTodo(); irA('ventas'); aviso('Venta guardada');
+});
+
+/* ---------- Pestaña Pedidos ---------- */
+// estado.pedidos guarda un texto libre por día, con la fecha (aaaa-mm-dd) como clave
+const aFecha = f => { const [a, m, d] = f.split('-').map(Number); return new Date(a, m - 1, d); };
+const aClave = d => d.toLocaleDateString('sv-SE');
+let calMes = hoy().slice(0, 7);
+const editorPedido = $('#ped-editor');
+
+// Deja solo negrita, subrayado, listas y saltos de línea; cualquier otra etiqueta o atributo se descarta
+const ETIQUETAS_PEDIDO = new Set(['B', 'STRONG', 'U', 'UL', 'OL', 'LI', 'BR', 'DIV', 'P']);
+// Resaltados: se guardan como <mark data-c="color">; mientras se edita son <span style="background-color"> (lo que genera el navegador)
+const RESALTADOS = { amarillo: '#ffe866', rojo: '#ff9aa2', verde: '#9be7a8' };
+const rgbDe = hex => `rgb(${[1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+const RESALTADO_POR_RGB = Object.fromEntries(Object.entries(RESALTADOS).map(([nombre, hex]) => [rgbDe(hex), nombre]));
+const paraEditar = html => html
+  .replace(/<mark data-c="(\w+)">/g, (_, c) => `<span style="background-color: ${rgbDe(RESALTADOS[c])}">`)
+  .replace(/<\/mark>/g, '</span>');
+function limpiarHtml(html) {
+  const t = document.createElement('template');
+  t.innerHTML = html;
+  const recorrer = nodo => [...nodo.childNodes].forEach(h => {
+    if (h.nodeType === Node.TEXT_NODE) return;
+    if (h.nodeType !== Node.ELEMENT_NODE || h.tagName === 'SCRIPT' || h.tagName === 'STYLE') return h.remove();
+    recorrer(h);
+    if (h.tagName === 'MARK') {
+      const c = h.dataset.c;
+      if (!(c in RESALTADOS)) return h.replaceWith(...h.childNodes);
+      [...h.attributes].forEach(a => h.removeAttribute(a.name));
+      h.dataset.c = c;
+      return;
+    }
+    const color = RESALTADO_POR_RGB[h.style.backgroundColor];
+    if (color && h.childNodes.length) {
+      const m = document.createElement('mark');
+      m.dataset.c = color; m.append(...h.childNodes); h.append(m);
+    }
+    if (!ETIQUETAS_PEDIDO.has(h.tagName)) h.replaceWith(...h.childNodes);
+    else [...h.attributes].forEach(a => h.removeAttribute(a.name));
+  });
+  recorrer(t.content);
+  return t.innerHTML;
+}
+
+// Las notas viejas son texto plano (string); las nuevas se guardan como { html }
+function pedidoHtml(f) {
+  const v = estado.pedidos[f];
+  if (!v) return '';
+  return typeof v === 'string' ? esc(v).replace(/\n/g, '<br>') : limpiarHtml(v.html || '');
+}
+
+function refrescarHerramientas() {
+  document.querySelectorAll('#ped-herramientas button').forEach(b =>
+    b.classList.toggle('activo', document.activeElement === editorPedido && (b.dataset.color
+      ? document.queryCommandValue('backColor') === rgbDe(RESALTADOS[b.dataset.color])
+      : document.queryCommandState(b.dataset.cmd))));
+}
+// mousedown con preventDefault para que el botón no le saque el foco (y la selección) al editor
+$('#ped-herramientas').addEventListener('mousedown', ev => ev.preventDefault());
+$('#ped-herramientas').addEventListener('click', ev => {
+  const b = ev.target.closest('button'); if (!b) return;
+  editorPedido.focus();
+  // Tocar un color que ya está aplicado lo quita
+  if (b.dataset.color) document.execCommand('hiliteColor', false, b.classList.contains('activo') ? 'transparent' : RESALTADOS[b.dataset.color]);
+  else document.execCommand(b.dataset.cmd);
+  refrescarHerramientas();
+});
+document.addEventListener('selectionchange', refrescarHerramientas);
+// Al pegar se inserta solo el texto, sin el formato de origen
+editorPedido.addEventListener('paste', ev => {
+  ev.preventDefault();
+  document.execCommand('insertText', false, ev.clipboardData.getData('text/plain'));
+});
+let pedidoFecha = null;
+const formPedido = $('#form-pedido');
+
+function pintarPedidos() {
+  const primero = aFecha(calMes + '-01'), mes = primero.getMonth();
+  const desfase = (primero.getDay() + 6) % 7; // la semana arranca el lunes
+  const diasMes = new Date(primero.getFullYear(), mes + 1, 0).getDate();
+  const celdas = Math.ceil((desfase + diasMes) / 7) * 7;
+  $('#cal-titulo').textContent = primero.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+  let html = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => `<div class="dia-sem">${d}</div>`).join('');
+  for (let i = 0; i < celdas; i++) {
+    const d = new Date(primero.getFullYear(), mes, 1 - desfase + i), f = aClave(d), txt = pedidoHtml(f);
+    html += `<div class="dia${d.getMonth() !== mes ? ' fuera' : ''}${f === hoy() ? ' hoy' : ''}${txt ? ' con' : ''}" data-acc="ped-abrir" data-f="${f}">
+      <span class="n">${d.getDate()}</span>${txt ? `<div class="txt">${txt}</div>` : ''}</div>`;
+  }
+  $('#cal').innerHTML = html;
+  const proximos = Object.keys(estado.pedidos).filter(f => f >= hoy()).sort();
+  $('#ped-proximos').innerHTML = proximos.length ? proximos.map(f => `<div class="proximo" data-acc="ped-abrir" data-f="${f}">
+    <div class="f">${aFecha(f).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
+    <div class="txt">${pedidoHtml(f)}</div></div>`).join('') : '<div class="vacio">No hay pedidos anotados de hoy en adelante.</div>';
+}
+
+formPedido.addEventListener('submit', () => {
+  if (editorPedido.textContent.trim()) estado.pedidos[pedidoFecha] = { html: limpiarHtml(editorPedido.innerHTML) };
+  else delete estado.pedidos[pedidoFecha];
+  guardar(); pintarPedidos();
+});
+
+/* ---------- General ---------- */
+function pintarTodo() { pintarCotForm(); pintarInsumos(); pintarProductos(); pintarHistorial(); pintarVentas(); pintarPedidos(); }
+
+function aplicarTema() {
+  document.documentElement.dataset.tema = estado.tema;
+  $('#btn-tema').textContent = estado.tema === 'oscuro' ? '☀ Modo claro' : '🌙 Modo oscuro';
+}
+
+let tAviso = null;
+function aviso(t) {
+  const e = $('#toast'); e.textContent = t; e.classList.add('ver');
+  clearTimeout(tAviso); tAviso = setTimeout(() => e.classList.remove('ver'), 2200);
+}
+
+async function copiar(texto) {
+  try { await navigator.clipboard.writeText(texto); }
+  catch (e) {
+    const t = document.createElement('textarea'); t.value = texto; document.body.append(t); t.select();
+    document.execCommand('copy'); t.remove();
+  }
+  aviso('Resumen copiado');
+}
+
+function irA(tab) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('activo', b.dataset.tab === tab));
+  document.querySelectorAll('main section').forEach(s => s.classList.toggle('activo', s.id === 'tab-' + tab));
+}
+
+const acciones = {
+  'cot-agregar'() { estado.borrador.items.push({ insumoId: '', modo: 'corte', cantidad: 1, piezas: 1, ancho: 5, alto: 5, sep: 2 }); pintarCotForm(); },
+  'cot-quitar'(d) { estado.borrador.items.splice(+d.i, 1); pintarCotForm(); },
+  'cot-limpiar'() { estado.borrador = cotVacia(); pintarCotForm(); },
+  'cot-copiar'() { copiar(textoResumen(estado.borrador, calcular(estado.borrador))); },
+  'cot-producto'() {
+    const c = estado.borrador;
+    if (!c.nombre.trim()) return aviso('Ponele un nombre al producto');
+    const datos = JSON.parse(JSON.stringify({ nombre: c.nombre.trim(), margen: c.margen, manoObra: c.manoObra, otros: c.otros, redondeo: c.redondeo, items: c.items }));
+    const p = estado.productos.find(x => x.id === c.productoId);
+    if (p) Object.assign(p, datos);
+    else { c.productoId = nuevoId(); estado.productos.push({ id: c.productoId, ...datos }); }
+    pintarTodo(); aviso('Producto guardado');
+  },
+  'cot-guardar'() {
+    const c = estado.borrador, r = calcular(c);
+    if (!r.lineas.length && !r.costo) return aviso('La cotización está vacía');
+    estado.historial.unshift({
+      id: nuevoId(), fecha: new Date().toISOString(), nombre: c.nombre || 'Producto sin nombre', cliente: c.cliente, cantidad: r.n,
+      costo: r.costo, margen: r.margenReal, ganancia: r.ganancia, precio: r.precio, resumen: textoResumen(c, r),
+      consumo: r.lineas.map(l => ({ insumoId: l.ins.id, usados: l.usados })), stockDescontado: false,
+    });
+    pintarHistorial(); aviso('Cotización guardada en el historial');
+  },
+  'ins-nuevo'() { abrirInsumo(null); },
+  'ins-editar'(d) { abrirInsumo(d.id); },
+  'ins-duplicar'(d) {
+    const i = insumoPorId(d.id);
+    estado.insumos.push({ ...i, id: nuevoId(), nombre: i.nombre + ' (copia)' }); pintarTodo();
+  },
+  'ins-borrar'(d) {
+    const i = insumoPorId(d.id);
+    if (!confirm(`¿Eliminar "${i.nombre}"? Los productos que lo usan van a quedar sin ese insumo.`)) return;
+    estado.insumos = estado.insumos.filter(x => x.id !== d.id); pintarTodo();
+  },
+  'ins-stock'(d) { const i = insumoPorId(d.id); i.stock = num(i.stock) + num(d.d); pintarInsumos(); pintarCotRes(); },
+  'dlg-cerrar'() { document.querySelectorAll('dialog[open]').forEach(d => d.close()); },
+  'cot-vender'() {
+    const c = estado.borrador, r = calcular(c);
+    if (!r.lineas.length && !r.costo) return aviso('La cotización está vacía');
+    abrirVenta({
+      id: nuevoId(), cotId: null, fecha: hoy(), nombre: c.nombre || 'Producto sin nombre', cliente: c.cliente, cantidad: r.n,
+      costo: r.costo, precioCotizado: r.precio, precio: r.precio, medioPago: 'Efectivo', notas: '',
+      consumo: r.lineas.map(l => ({ insumoId: l.ins.id, usados: l.usados })), stockDescontado: false,
+    }, true);
+  },
+  'hist-vender'(d) {
+    const h = estado.historial.find(x => x.id === d.id);
+    abrirVenta({
+      id: nuevoId(), cotId: h.id, fecha: hoy(), nombre: h.nombre, cliente: h.cliente, cantidad: h.cantidad,
+      costo: h.costo, precioCotizado: h.precio, precio: h.precio, medioPago: 'Efectivo', notas: '',
+      consumo: h.consumo, stockDescontado: h.stockDescontado,
+    }, true);
+  },
+  'ven-editar'(d) { abrirVenta(estado.ventas.find(v => v.id === d.id), false); },
+  'ven-borrar'(d) {
+    const v = estado.ventas.find(x => x.id === d.id);
+    if (!confirm(`¿Eliminar la venta de "${v.nombre}"?` + (v.stockDescontado ? ' El stock descontado no se repone.' : ''))) return;
+    estado.ventas = estado.ventas.filter(x => x.id !== d.id); pintarVentas();
+  },
+  'ped-mes'(d) {
+    const f = aFecha(calMes + '-01'); f.setMonth(f.getMonth() + num(d.d));
+    calMes = aClave(f).slice(0, 7); pintarPedidos();
+  },
+  'ped-hoy'() { calMes = hoy().slice(0, 7); pintarPedidos(); },
+  'ped-abrir'(d) {
+    pedidoFecha = d.f;
+    $('#dlg-pedido-titulo').textContent = aFecha(d.f).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    editorPedido.innerHTML = paraEditar(pedidoHtml(d.f));
+    $('#ped-borrar').style.display = estado.pedidos[d.f] ? '' : 'none';
+    $('#dlg-pedido').showModal();
+    editorPedido.focus();
+  },
+  'ped-borrar'() {
+    if (!confirm('¿Borrar el pedido de este día?')) return;
+    delete estado.pedidos[pedidoFecha]; $('#dlg-pedido').close(); pintarPedidos();
+  },
+  'ven-todas'() { $('#ven-mes').value = ''; $('#ven-buscar').value = ''; pintarVentas(); },
+  'prod-nuevo'() { estado.borrador = cotVacia(); pintarCotForm(); irA('cot'); },
+  'prod-cotizar'(d) { cargarProducto(d.id); irA('cot'); },
+  'prod-duplicar'(d) {
+    const p = estado.productos.find(x => x.id === d.id);
+    estado.productos.push({ ...JSON.parse(JSON.stringify(p)), id: nuevoId(), nombre: p.nombre + ' (copia)' }); pintarTodo();
+  },
+  'prod-borrar'(d) {
+    const p = estado.productos.find(x => x.id === d.id);
+    if (!confirm(`¿Eliminar el producto "${p.nombre}"?`)) return;
+    estado.productos = estado.productos.filter(x => x.id !== d.id);
+    if (estado.borrador.productoId === d.id) estado.borrador.productoId = null;
+    pintarTodo();
+  },
+  'hist-copiar'(d) { copiar(estado.historial.find(h => h.id === d.id).resumen); },
+  'hist-borrar'(d) {
+    if (!confirm('¿Eliminar esta cotización del historial?')) return;
+    estado.historial = estado.historial.filter(h => h.id !== d.id); pintarHistorial();
+  },
+  'hist-stock'(d) {
+    const h = estado.historial.find(x => x.id === d.id);
+    if (!confirm('Se va a restar del stock la materia prima usada en esta cotización. ¿Continuar?')) return;
+    h.consumo.forEach(c => { const i = insumoPorId(c.insumoId); if (i) i.stock = num(i.stock) - c.usados; });
+    h.stockDescontado = true; pintarTodo(); aviso('Stock actualizado');
+  },
+  async exportar() {
+    if (!enApp) return aviso('Disponible en la aplicación de escritorio');
+    const destino = await window.pywebview.api.exportar(JSON.stringify(estado, null, 2), `munay-backup-${hoy()}.json`);
+    if (destino) aviso('Backup guardado');
+  },
+  async importar() {
+    if (!enApp) return aviso('Disponible en la aplicación de escritorio');
+    const texto = await window.pywebview.api.importar();
+    if (!texto) return;
+    let d; try { d = JSON.parse(texto); } catch (e) { d = null; }
+    if (!d || !Array.isArray(d.insumos)) return aviso('El archivo no es un backup válido');
+    if (!confirm('Esto reemplaza todos los datos actuales por los del backup. ¿Continuar?')) return;
+    estado = normalizar(d); aplicarTema(); pintarTodo(); aviso('Backup restaurado');
+  },
+};
+
+document.addEventListener('click', async ev => {
+  const tab = ev.target.closest('nav button');
+  if (tab) return irA(tab.dataset.tab);
+  const b = ev.target.closest('[data-acc]');
+  if (!b || !estado) return;
+  await acciones[b.dataset.acc](b.dataset);
+  guardar();
+});
+
+$('#btn-tema').addEventListener('click', () => {
+  estado.tema = estado.tema === 'oscuro' ? 'claro' : 'oscuro'; aplicarTema(); guardar();
+});
+
+// Campos del cotizador: se actualiza el resultado sin repintar el formulario para no perder el foco
+$('#cot-form').addEventListener('input', ev => {
+  const t = ev.target, c = estado.borrador;
+  if (t.id === 'cot-cargar') return cargarProducto(t.value);
+  if (t.dataset.f) c[t.dataset.f] = 'n' in t.dataset ? num(t.value) : t.value;
+  else if (t.dataset.k) {
+    const it = c.items[+t.dataset.i], k = t.dataset.k;
+    it[k] = (k === 'insumoId' || k === 'modo') ? t.value : num(t.value);
+  } else return;
+  guardar();
+  if ('repintar' in t.dataset) pintarCotForm(); else pintarCotRes();
+});
+$('#ins-buscar').addEventListener('input', pintarInsumos);
+$('#ins-cat').addEventListener('input', pintarInsumos);
+$('#ven-buscar').addEventListener('input', pintarVentas);
+$('#ven-mes').addEventListener('input', pintarVentas);
+
+// En el .exe hay que esperar a que pywebview exponga la API; con ?web arranca directo (para probar en un navegador)
+if (window.pywebview && window.pywebview.api) iniciar();
+else if (location.search.includes('web')) iniciar();
+else window.addEventListener('pywebviewready', iniciar);
+</script>
+</body>
+</html>
