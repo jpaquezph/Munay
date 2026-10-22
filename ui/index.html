@@ -178,6 +178,14 @@ dialog .pie { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6p
 .cal .dia .n { font-weight: 700; font-size: 13px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; flex: none; }
 .cal .dia.hoy .n { background: var(--degrade); color: #fff; }
 .cal .dia.con { background: var(--superficie); border-color: var(--rosa); box-shadow: inset 4px 0 0 var(--rosa); }
+.presu {
+  display: block; font-size: 11.5px; font-weight: 600; background: var(--degrade); color: #fff; border-radius: 6px;
+  padding: 1px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; cursor: pointer;
+}
+.presu:hover { filter: brightness(1.08); }
+.proximo .presu { display: inline-block; max-width: 100%; margin: 0 6px 4px 0; padding: 2px 8px; font-size: 12.5px; }
+.chip.ok { color: var(--ok); }
+.estado-presu { display: flex; gap: 10px; align-items: center; padding: 12px 18px; }
 .cal .dia .txt { font-size: 12px; line-height: 1.3; overflow-wrap: anywhere; overflow: hidden; }
 .proximo { display: flex; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--borde); cursor: pointer; }
 .proximo:last-child { border-bottom: 0; }
@@ -301,6 +309,7 @@ button.b.wsp:hover { filter: brightness(1.06); color: #fff; }
   </section>
 
   <section id="tab-pedidos">
+    <div class="tarjeta"><h2>Presupuestos en espera</h2><div id="presu-lista"></div></div>
     <div class="tarjeta">
       <div class="barra">
         <button class="b" data-acc="ped-mes" data-d="-1">‹</button>
@@ -308,7 +317,7 @@ button.b.wsp:hover { filter: brightness(1.06); color: #fff; }
         <button class="b" data-acc="ped-mes" data-d="1">›</button>
         <button class="b" data-acc="ped-hoy">Hoy</button>
         <span class="espacio"></span>
-        <span class="pista" style="margin:0">Hacé clic en un día para anotar o editar el pedido.</span>
+        <span class="pista" style="margin:0">Hacé clic en un día para anotar o editar el pedido. Los presupuestos aprobados aparecen en color.</span>
       </div>
       <div class="cal" id="cal"></div>
     </div>
@@ -375,6 +384,22 @@ button.b.wsp:hover { filter: brightness(1.06); color: #fff; }
     </div>
   </form>
 </dialog>
+<dialog id="dlg-presu">
+  <h2 id="dlg-presu-titulo">Presupuesto</h2>
+  <form method="dialog" id="form-presu">
+    <div id="dlg-presu-info"></div>
+    <div class="fila">
+      <div class="campo"><label>Fecha del pedido</label><input name="fecha" type="date" required></div>
+    </div>
+    <div class="pie">
+      <button class="b peligro" type="button" data-acc="presu-borrar" style="margin-right:auto">Eliminar</button>
+      <button class="b" type="button" data-acc="presu-espera" id="presu-espera">Volver a en espera</button>
+      <button class="b" type="button" data-acc="presu-editar">Editar presupuesto</button>
+      <button class="b" type="button" data-acc="dlg-cerrar">Cancelar</button>
+      <button class="b primario" type="submit" id="presu-ok">Aprobar</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="dlg-venta">
   <h2 id="dlg-venta-titulo">Registrar venta</h2>
   <form method="dialog" id="form-venta">
@@ -418,7 +443,8 @@ const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice
 /* ---------- Datos ---------- */
 // precioFinal es por unidad; el costo y la ganancia se calculan a partir de él
 const cotVacia = () => ({ productoId: null, nombre: '', cliente: '', cantidad: 1, otros: 0, precioFinal: 0, items: [] });
-const preVacio = () => ({ cliente: '', telefono: '', items: [], descuento: 0, envio: 0, nota: '', conDetalle: true, autoEnviar: true });
+// presupuestoId: si el presupuesto abierto ya está guardado en estado.presupuestos
+const preVacio = () => ({ presupuestoId: null, cliente: '', telefono: '', items: [], descuento: 0, envio: 0, nota: '', conDetalle: true, autoEnviar: true });
 const ajustesBase = () => ({ negocio: 'Munay', telefono: '' });
 
 function datosIniciales() {
@@ -442,7 +468,7 @@ function datosIniciales() {
       { insumoId: insumos[4].id, modo: 'cantidad', cantidad: 3, piezas: 1, ancho: 5, alto: 5, sep: 2 },
     ],
   }];
-  return { tema: 'claro', insumos, productos, historial: [], ventas: [], pedidos: {}, borrador: cotVacia(), presupuesto: preVacio(), ajustes: ajustesBase() };
+  return { tema: 'claro', insumos, productos, historial: [], ventas: [], pedidos: {}, presupuestos: [], borrador: cotVacia(), presupuesto: preVacio(), ajustes: ajustesBase() };
 }
 
 let estado = null;
@@ -450,6 +476,7 @@ let enApp = false;
 let temporizador = null;
 
 function guardar() {
+  sincronizarPresupuesto();
   clearTimeout(temporizador);
   temporizador = setTimeout(() => {
     const texto = JSON.stringify(estado);
@@ -468,6 +495,7 @@ function normalizar(d) {
     historial: Array.isArray(d.historial) ? d.historial : [],
     ventas: Array.isArray(d.ventas) ? d.ventas : [],
     pedidos: d.pedidos && typeof d.pedidos === 'object' ? d.pedidos : {},
+    presupuestos: Array.isArray(d.presupuestos) ? d.presupuestos : [],
     borrador: Object.assign(cotVacia(), d.borrador || {}),
     presupuesto: Object.assign(preVacio(), d.presupuesto || {}),
     ajustes: Object.assign(ajustesBase(), d.ajustes || {}),
@@ -716,13 +744,39 @@ function calcPresupuesto(p) {
   return { lineas, subtotal, pct, descuento, envio, total: subtotal - descuento + envio };
 }
 
+// Presupuestos guardados: quedan "pendiente" (en espera) hasta que el cliente los aprueba;
+// al aprobarlos se les pone fecha y aparecen en el calendario de Pedidos.
+const CAMPOS_PRESUPUESTO = ['cliente', 'telefono', 'items', 'descuento', 'envio', 'nota', 'conDetalle', 'autoEnviar'];
+const camposPresupuesto = p => JSON.parse(JSON.stringify(Object.fromEntries(CAMPOS_PRESUPUESTO.map(k => [k, p[k]]))));
+const presuPorId = id => estado.presupuestos.find(x => x.id === id);
+const presuGuardado = () => presuPorId(estado.presupuesto.presupuestoId);
+
+// Si el presupuesto abierto ya está guardado, cada cambio se copia al guardado
+function sincronizarPresupuesto() {
+  const g = estado && presuGuardado();
+  if (g) Object.assign(g, camposPresupuesto(estado.presupuesto));
+}
+
+function guardarPresupuesto() {
+  const p = estado.presupuesto;
+  let g = presuGuardado();
+  if (!g) {
+    if (!p.items.length) { aviso('Agregá al menos un artículo'); return null; }
+    g = { id: nuevoId(), creado: hoy(), estado: 'pendiente', fecha: '' };
+    estado.presupuestos.push(g);
+    p.presupuestoId = g.id;
+  }
+  sincronizarPresupuesto();
+  return g;
+}
+
 function agregarAlPresupuesto(nombre, precio, cantidad) {
   estado.presupuesto.items.push({ nombre, precio: Math.round(precio * 100) / 100, cantidad: Math.max(1, cantidad || 1) });
   pintarPreForm();
 }
 
 function pintarPreForm() {
-  const p = estado.presupuesto, a = estado.ajustes;
+  const p = estado.presupuesto, a = estado.ajustes, g = presuGuardado(), aprobado = g && g.estado === 'aprobado';
   const lineas = p.items.map((it, i) => `<div class="linea">
       <div class="fila">
         <div class="campo grande"><label>Artículo</label><input data-i="${i}" data-k="nombre" value="${esc(it.nombre)}" placeholder="Ej.: Topper cake 3D (con nombre)"></div>
@@ -737,6 +791,10 @@ function pintarPreForm() {
     </div>`).join('');
 
   $('#pre-form').innerHTML = `
+    ${g ? `<div class="tarjeta estado-presu">
+      <span class="chip ${aprobado ? 'ok' : ''}">${aprobado ? 'Aprobado' : 'En espera'}</span>
+      <span>${aprobado ? `Agendado para el ${fechaLarga(g.fecha)}` : 'Guardado, esperando que el cliente lo apruebe'}. Los cambios se guardan solos.</span>
+    </div>` : ''}
     <div class="tarjeta">
       <h2><span class="paso">1</span> Cliente</h2>
       <div class="fila">
@@ -775,7 +833,11 @@ function pintarPreForm() {
         <textarea data-p="nota" placeholder="Ej.: Seña del 50 % para confirmar. Presupuesto válido por 7 días.">${esc(p.nota)}</textarea></div>
       <label class="marca" style="margin-top:10px"><input type="checkbox" data-p="conDetalle" ${p.conDetalle ? 'checked' : ''}> Incluir también el detalle en el texto del mensaje</label>
       <label class="marca"><input type="checkbox" data-p="autoEnviar" ${p.autoEnviar ? 'checked' : ''}> Enviar automáticamente (si lo destildás, queda todo cargado para que lo revises y toques Enviar)</label>
-      <div class="acciones" style="margin-top:12px"><button class="b peligro" data-acc="pre-vaciar">Empezar uno nuevo</button></div>
+      <div class="acciones" style="margin-top:12px">
+        ${g ? '' : '<button class="b primario" data-acc="pre-guardar">Guardar presupuesto</button>'}
+        <button class="b${g ? ' primario' : ''}" data-acc="pre-aprobar">${aprobado ? 'Cambiar fecha' : '✓ Aprobado'}</button>
+        <button class="b peligro" data-acc="pre-vaciar">Empezar uno nuevo</button>
+      </div>
     </div>
     <div class="tarjeta">
       <h2>Tus datos (salen en la imagen)</h2>
@@ -1135,6 +1197,7 @@ formVenta.addEventListener('submit', () => {
 // estado.pedidos guarda un texto libre por día, con la fecha (aaaa-mm-dd) como clave
 const aFecha = f => { const [a, m, d] = f.split('-').map(Number); return new Date(a, m - 1, d); };
 const aClave = d => d.toLocaleDateString('sv-SE');
+const fechaLarga = f => aFecha(f).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
 let calMes = hoy().slice(0, 7);
 const editorPedido = $('#ped-editor');
 
@@ -1205,6 +1268,56 @@ editorPedido.addEventListener('paste', ev => {
 let pedidoFecha = null;
 const formPedido = $('#form-pedido');
 
+const presusDelDia = f => estado.presupuestos.filter(p => p.estado === 'aprobado' && p.fecha === f);
+const chipPresu = p => `<div class="presu" data-acc="presu-abrir" data-id="${p.id}" title="${esc(p.items.map(it => it.nombre).join(' · '))}">
+  ${esc(p.cliente.trim() || 'Presupuesto')} · ${pesos(calcPresupuesto(p).total)}</div>`;
+
+function pintarPresuEspera() {
+  const lista = estado.presupuestos.filter(p => p.estado !== 'aprobado').sort((a, b) => String(b.creado).localeCompare(String(a.creado)));
+  $('#presu-lista').innerHTML = lista.length ? `<table>
+    <thead><tr><th>Guardado</th><th>Cliente</th><th>Artículos</th><th class="num">Total</th><th></th></tr></thead>
+    <tbody>${lista.map(p => `<tr>
+      <td>${fechaCorta(p.creado)}</td>
+      <td><b>${esc(p.cliente || 'Sin nombre')}</b>${p.telefono ? `<div class="pista" style="margin:0">${esc(p.telefono)}</div>` : ''}</td>
+      <td>${esc(p.items.map(it => `${cant(it.cantidad)} × ${it.nombre || 'Artículo'}`).join(' · '))}</td>
+      <td class="num"><b>${pesos(calcPresupuesto(p).total)}</b></td>
+      <td class="num">
+        <button class="b mini" data-acc="presu-editar" data-id="${p.id}">Editar</button>
+        <button class="b mini primario" data-acc="presu-abrir" data-id="${p.id}">✓ Aprobado</button>
+        <button class="b mini peligro" data-acc="presu-borrar" data-id="${p.id}">Eliminar</button>
+      </td></tr>`).join('')}</tbody></table>`
+    : '<div class="vacio">No hay presupuestos esperando aprobación. Se guardan desde la pestaña Presupuesto.</div>';
+}
+
+let presuAbierto = null;
+const formPresu = $('#form-presu');
+
+function abrirPresu(id) {
+  const p = presuAbierto = presuPorId(id), aprobado = p.estado === 'aprobado', r = calcPresupuesto(p);
+  $('#dlg-presu-titulo').textContent = aprobado ? 'Presupuesto aprobado' : 'Aprobar presupuesto';
+  $('#dlg-presu-info').innerHTML = `
+    <div><b>${esc(p.cliente || 'Sin nombre')}</b>${p.telefono ? ` · ${esc(p.telefono)}` : ''}</div>
+    <table class="resumen">
+      ${r.lineas.map(l => `<tr class="sub"><td>${cant(l.cantidad)} × ${esc(l.nombre || 'Artículo')}</td><td class="num">${pesos(l.total)}</td></tr>`).join('')}
+      ${r.pct ? `<tr class="sub"><td>Descuento (${cant(r.pct)} %)</td><td class="num">−${pesos(r.descuento)}</td></tr>` : ''}
+      ${r.envio ? `<tr class="sub"><td>Envío</td><td class="num">${pesos(r.envio)}</td></tr>` : ''}
+      <tr class="total"><td>Total</td><td class="num">${pesos(r.total)}</td></tr>
+    </table>
+    ${aprobado ? '' : '<div class="pista">¿Para qué día es el pedido? Al aprobarlo pasa al calendario.</div>'}`;
+  formPresu.elements.fecha.value = p.fecha || '';
+  $('#presu-espera').style.display = aprobado ? '' : 'none';
+  $('#presu-ok').textContent = aprobado ? 'Guardar fecha' : 'Aprobar y agendar';
+  $('#dlg-presu').showModal();
+  formPresu.elements.fecha.focus();
+}
+
+formPresu.addEventListener('submit', () => {
+  const p = presuAbierto;
+  p.estado = 'aprobado'; p.fecha = formPresu.elements.fecha.value;
+  calMes = p.fecha.slice(0, 7);
+  guardar(); pintarPreForm(); irA('pedidos'); aviso('Presupuesto aprobado y agendado');
+});
+
 function pintarPedidos() {
   const primero = aFecha(calMes + '-01'), mes = primero.getMonth();
   const desfase = (primero.getDay() + 6) % 7; // la semana arranca el lunes
@@ -1213,15 +1326,17 @@ function pintarPedidos() {
   $('#cal-titulo').textContent = primero.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
   let html = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => `<div class="dia-sem">${d}</div>`).join('');
   for (let i = 0; i < celdas; i++) {
-    const d = new Date(primero.getFullYear(), mes, 1 - desfase + i), f = aClave(d), txt = pedidoHtml(f);
-    html += `<div class="dia${d.getMonth() !== mes ? ' fuera' : ''}${f === hoy() ? ' hoy' : ''}${txt ? ' con' : ''}" data-acc="ped-abrir" data-f="${f}">
-      <span class="n">${d.getDate()}</span>${txt ? `<div class="txt">${txt}</div>` : ''}</div>`;
+    const d = new Date(primero.getFullYear(), mes, 1 - desfase + i), f = aClave(d), txt = pedidoHtml(f), presus = presusDelDia(f);
+    html += `<div class="dia${d.getMonth() !== mes ? ' fuera' : ''}${f === hoy() ? ' hoy' : ''}${txt || presus.length ? ' con' : ''}" data-acc="ped-abrir" data-f="${f}">
+      <span class="n">${d.getDate()}</span>${presus.map(chipPresu).join('')}${txt ? `<div class="txt">${txt}</div>` : ''}</div>`;
   }
   $('#cal').innerHTML = html;
-  const proximos = Object.keys(estado.pedidos).filter(f => f >= hoy()).sort();
+  const fechasPresu = estado.presupuestos.filter(p => p.estado === 'aprobado').map(p => p.fecha);
+  const proximos = [...new Set([...Object.keys(estado.pedidos), ...fechasPresu])].filter(f => f >= hoy()).sort();
   $('#ped-proximos').innerHTML = proximos.length ? proximos.map(f => `<div class="proximo" data-acc="ped-abrir" data-f="${f}">
     <div class="f">${aFecha(f).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
-    <div class="txt">${pedidoHtml(f)}</div></div>`).join('') : '<div class="vacio">No hay pedidos anotados de hoy en adelante.</div>';
+    <div class="txt">${presusDelDia(f).map(chipPresu).join('')}${pedidoHtml(f)}</div></div>`).join('') : '<div class="vacio">No hay pedidos anotados de hoy en adelante.</div>';
+  pintarPresuEspera();
 }
 
 formPedido.addEventListener('submit', () => {
@@ -1256,6 +1371,7 @@ async function copiar(texto) {
 function irA(tab) {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('activo', b.dataset.tab === tab));
   document.querySelectorAll('main section').forEach(s => s.classList.toggle('activo', s.id === 'tab-' + tab));
+  if (tab === 'pedidos') pintarPedidos(); // por si cambió algún presupuesto guardado
 }
 
 const acciones = {
@@ -1310,8 +1426,35 @@ const acciones = {
   },
   'pre-quitar'(d) { estado.presupuesto.items.splice(+d.i, 1); pintarPreForm(); },
   'pre-vaciar'() {
-    if (estado.presupuesto.items.length && !confirm('¿Borrar este presupuesto y empezar uno nuevo?')) return;
+    // Si ya está guardado no se pierde nada: solo se cierra
+    if (!presuGuardado() && estado.presupuesto.items.length && !confirm('¿Borrar este presupuesto y empezar uno nuevo?')) return;
     estado.presupuesto = preVacio(); pintarPreForm();
+  },
+  'pre-guardar'() {
+    if (!guardarPresupuesto()) return;
+    pintarPreForm(); aviso('Presupuesto guardado en espera (lo ves en Pedidos)');
+  },
+  'pre-aprobar'() {
+    const g = guardarPresupuesto();
+    if (g) { pintarPreForm(); abrirPresu(g.id); }
+  },
+  'presu-abrir'(d) { abrirPresu(d.id); },
+  'presu-editar'(d) {
+    const g = presuPorId(d.id || presuAbierto.id), p = estado.presupuesto;
+    if (!presuGuardado() && p.items.length && !confirm('En la pestaña Presupuesto hay uno sin guardar. ¿Reemplazarlo?')) return;
+    estado.presupuesto = { ...preVacio(), ...camposPresupuesto(g), presupuestoId: g.id };
+    $('#dlg-presu').close(); pintarPreForm(); irA('pre');
+  },
+  'presu-espera'() {
+    presuAbierto.estado = 'pendiente';
+    $('#dlg-presu').close(); pintarPreForm(); pintarPedidos(); aviso('Presupuesto de nuevo en espera');
+  },
+  'presu-borrar'(d) {
+    const g = presuPorId(d.id || presuAbierto.id);
+    if (!confirm(`¿Eliminar el presupuesto de "${g.cliente || 'Sin nombre'}"?`)) return;
+    estado.presupuestos = estado.presupuestos.filter(x => x.id !== g.id);
+    if (estado.presupuesto.presupuestoId === g.id) estado.presupuesto.presupuestoId = null;
+    $('#dlg-presu').close(); pintarPreForm(); pintarPedidos();
   },
   async 'pre-whatsapp'() {
     const p = estado.presupuesto;
