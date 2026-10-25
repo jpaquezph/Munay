@@ -183,6 +183,15 @@ dialog .pie { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6p
   padding: 1px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; cursor: pointer;
 }
 .presu:hover { filter: brightness(1.08); }
+.presu.amarillo { background: #f5c518; color: #3a2a00; }
+.presu.rojo { background: #e5484d; }
+.presu.verde { background: #2f9e6e; }
+.colores { display: flex; gap: 8px; flex-wrap: wrap; }
+.colores label { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 400; color: var(--texto); cursor: pointer;
+  border: 1px solid var(--borde); border-radius: 999px; padding: 5px 8px; background: var(--superficie-2); }
+.colores label:has(input:checked) { border-color: var(--violeta); outline: 2px solid var(--violeta); }
+.colores input { width: auto; margin: 0; accent-color: var(--violeta-fuerte); }
+.colores .presu { width: 22px; height: 22px; padding: 0; border-radius: 6px; }
 .proximo .presu { display: inline-block; max-width: 100%; margin: 0 6px 4px 0; padding: 2px 8px; font-size: 12.5px; }
 .chip.ok { color: var(--ok); }
 .estado-presu { display: flex; gap: 10px; align-items: center; padding: 12px 18px; }
@@ -317,7 +326,7 @@ button.b.wsp:hover { filter: brightness(1.06); color: #fff; }
         <button class="b" data-acc="ped-mes" data-d="1">›</button>
         <button class="b" data-acc="ped-hoy">Hoy</button>
         <span class="espacio"></span>
-        <span class="pista" style="margin:0">Hacé clic en un día para anotar o editar el pedido. Los presupuestos aprobados aparecen en color.</span>
+        <span class="pista" style="margin:0">Hacé clic en un día para anotar o editar el pedido. Los presupuestos aprobados aparecen en color; tocalos para cambiar la fecha o el color de estado.</span>
       </div>
       <div class="cal" id="cal"></div>
     </div>
@@ -390,6 +399,14 @@ button.b.wsp:hover { filter: brightness(1.06); color: #fff; }
     <div id="dlg-presu-info"></div>
     <div class="fila">
       <div class="campo"><label>Fecha del pedido</label><input name="fecha" type="date" required></div>
+    </div>
+    <div class="campo" style="margin-top:10px"><label>Estado del pedido (color en el calendario)</label>
+      <div class="colores">
+        <label title="Munay"><input type="radio" name="color" value=""><span class="presu"></span></label>
+        <label title="Amarillo"><input type="radio" name="color" value="amarillo"><span class="presu amarillo"></span></label>
+        <label title="Rojo"><input type="radio" name="color" value="rojo"><span class="presu rojo"></span></label>
+        <label title="Verde"><input type="radio" name="color" value="verde"><span class="presu verde"></span></label>
+      </div>
     </div>
     <div class="pie">
       <button class="b peligro" type="button" data-acc="presu-borrar" style="margin-right:auto">Eliminar</button>
@@ -835,7 +852,7 @@ function pintarPreForm() {
       <label class="marca"><input type="checkbox" data-p="autoEnviar" ${p.autoEnviar ? 'checked' : ''}> Enviar automáticamente (si lo destildás, queda todo cargado para que lo revises y toques Enviar)</label>
       <div class="acciones" style="margin-top:12px">
         ${g ? '' : '<button class="b primario" data-acc="pre-guardar">Guardar presupuesto</button>'}
-        <button class="b${g ? ' primario' : ''}" data-acc="pre-aprobar">${aprobado ? 'Cambiar fecha' : '✓ Aprobado'}</button>
+        <button class="b${g ? ' primario' : ''}" data-acc="pre-aprobar">${aprobado ? 'Cambiar fecha o estado' : '✓ Aprobado'}</button>
         <button class="b peligro" data-acc="pre-vaciar">Empezar uno nuevo</button>
       </div>
     </div>
@@ -1269,7 +1286,8 @@ let pedidoFecha = null;
 const formPedido = $('#form-pedido');
 
 const presusDelDia = f => estado.presupuestos.filter(p => p.estado === 'aprobado' && p.fecha === f);
-const chipPresu = p => `<div class="presu" data-acc="presu-abrir" data-id="${p.id}" title="${esc(p.items.map(it => it.nombre).join(' · '))}">
+// p.color: '' (degradé de Munay), 'amarillo', 'rojo' o 'verde'; lo elige el usuario para marcar el estado del pedido
+const chipPresu = p => `<div class="presu${p.color ? ' ' + p.color : ''}" data-acc="presu-abrir" data-id="${p.id}" title="${esc(p.items.map(it => it.nombre).join(' · '))}">
   ${esc(p.cliente.trim() || 'Presupuesto')} · ${pesos(calcPresupuesto(p).total)}</div>`;
 
 function pintarPresuEspera() {
@@ -1305,15 +1323,16 @@ function abrirPresu(id) {
     </table>
     ${aprobado ? '' : '<div class="pista">¿Para qué día es el pedido? Al aprobarlo pasa al calendario.</div>'}`;
   formPresu.elements.fecha.value = p.fecha || '';
+  formPresu.elements.color.value = p.color || '';
   $('#presu-espera').style.display = aprobado ? '' : 'none';
-  $('#presu-ok').textContent = aprobado ? 'Guardar fecha' : 'Aprobar y agendar';
+  $('#presu-ok').textContent = aprobado ? 'Guardar cambios' : 'Aprobar y agendar';
   $('#dlg-presu').showModal();
   formPresu.elements.fecha.focus();
 }
 
 formPresu.addEventListener('submit', () => {
   const p = presuAbierto;
-  p.estado = 'aprobado'; p.fecha = formPresu.elements.fecha.value;
+  p.estado = 'aprobado'; p.fecha = formPresu.elements.fecha.value; p.color = formPresu.elements.color.value;
   calMes = p.fecha.slice(0, 7);
   guardar(); pintarPreForm(); irA('pedidos'); aviso('Presupuesto aprobado y agendado');
 });
